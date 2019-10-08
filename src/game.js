@@ -569,8 +569,8 @@
         let y = touch.pageY - getOffsetTop(renderer.canvas());
     
         return {
-            x: x*scale,
-            y: y*scale
+            x: x/scale,
+            y: y/scale
         };
     }
     
@@ -584,13 +584,14 @@
         for (let i = touches.length - 1; i >= 0; i--) {
             touchLocation = getRelativeTouchCoords(touches[i]);
     
-            if (touchLocation.x < renderer.currentWidth() * (1/4)) {
+            console.log(touchLocation.x);
+            if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
                 spot = 0;
             }
-            else if (touchLocation.x < game.gameFieldRect().width * (2/4)) {
+            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
                 spot = 1;
             }
-            else if (touchLocation.x < game.gameFieldRect().width * (3/4)) {
+            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
                 spot = 2;
             }
             else {
