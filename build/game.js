@@ -62,14 +62,14 @@
     ///////////////////////////////////////
     
     // Entity superclass
-    function Entity(x, y) {
+    function Entity(x, y, width, height) {
         this.x = x;
         this.y = y;
 
         this.time = 0;
 
-        this.width = 40;
-        this.height = 40;
+        this.width = width;
+        this.height = height;
     }
 
     // Update time step
@@ -87,7 +87,7 @@
 
     // Player object
     function Player(x, y) {
-        Entity.call(this, x, y);
+        Entity.call(this, x, y, 40, 40);
 
         this.rangeOfMovement = 4;
         this.move(0);
@@ -108,9 +108,10 @@
     };
 
     // Enemy object
-    function Enemy(x, y, speed) {
-        Entity.call(this, x, y);
+    function Enemy(x, y, speed, invisPointY) {
+        Entity.call(this, x, y, 40, 10);
         
+        this.invisPointY = invisPointY;
         this.speed = speed;
     }
 
@@ -230,8 +231,23 @@
 
         // Render enemy at its coords
         function _drawEnemy(context, enemy) {
-            context.fillStyle = "red";
-            context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            // Still visible
+            if (enemy.y < enemy.invisPointY) {
+                context.fillStyle = "red";
+                context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            }
+            // Under water
+            else {
+                // Visualize turning point
+                context.setLineDash([5, 3]);/*dashes are 5px and spaces are 3px*/
+                context.beginPath();
+                context.moveTo(0, enemy.invisPointY+enemy.height);
+                context.lineTo(_INITIAL_WIDTH, enemy.invisPointY+enemy.height);
+                context.stroke();
+
+                context.fillStyle = "white";
+                context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
+            }
         }
         
         // Render player at its coords
@@ -295,36 +311,34 @@
         var _spawnWave = (function () {
             let waveCounter = 0;
             let enemySpeed = 2;
+            let invisTurningPoint = renderer.INITIAL_HEIGHT();
 
             return function () {
                 let openSpot = randomInt(4);
                 let enemySpot;
-                //let speedUpAfterXWaves, speedUpRate;
                 let i;
 
                 // Increment spawned waves counter
                 waveCounter++;
+                console.log("wave " + waveCounter);
 
-                /* Increase speed every 3 waves
-                speedUpAfterXWaves = 3;
-                speedUpRate = 1;
+                // Tutorial waves are over, begin turning invisible
+                if (waveCounter == 3) {
+                    invisTurningPoint = invisTurningPoint / 4;
+                    console.log("Activating invisibilty gene...");
+                }
 
-                if (waveCounter > speedUpAfterXWaves) {
-                    waveCounter = 0;
-                    enemySpeed += speedUpRate;
-                    _enemySpawnRate -= 500 * speedUpRate;
-                    clearInterval(_spawner);
-                    setInterval(_spawnWave, _enemySpawnRate);
-                }*/
+                // Every wave, enemies turn invisible a littler sooner
+                // caps at y = 80
+                if (invisTurningPoint >= 80)
+                    invisTurningPoint -= 5;
 
                 for (i = 0; i < 4; i++) {
                     if (i !== openSpot) {
                         enemySpot = (renderer.INITIAL_WIDTH() / 4) * i + 20;
-                        _addEntity(new Enemy(enemySpot, -40, enemySpeed));
+                        _addEntity(new Enemy(enemySpot, -40, enemySpeed, invisTurningPoint));
                     }
                 }
-
-                console.log("wave " + waveCounter);
             };
         })();
 
@@ -455,16 +469,6 @@
                 if (collisions.offScreenEntities().includes(entity)) {
                     entitiesToRemove.push(entity);
                 }
-
-                /* Speed up enemies every 3 waves
-                speedUpAfterXWaves = 3;
-                speedUpRate = 0.05;
-
-                if (entity instanceof Enemy) {
-                    entity.speed += Math.floor(_score / (speedUpAfterXWaves*3)) * speedUpRate;
-                    // Update time between waves according to speed
-                    _enemySpawnRate = 1000 * entity.speed;
-                }*/
             }
             
 
@@ -584,7 +588,6 @@
         for (let i = touches.length - 1; i >= 0; i--) {
             touchLocation = getRelativeTouchCoords(touches[i]);
     
-            console.log(touchLocation.x);
             if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
                 spot = 0;
             }
