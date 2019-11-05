@@ -4,6 +4,44 @@
     // Helper functions/objects
     ///////////////////////////////////////
 
+    /* a timer that can pause and resume
+    function IntervalTimer(callback, interval) {
+        var timerId, startTime, remaining = 0;
+        var state = 0; //  0 = idle, 1 = running, 2 = paused, 3= resumed
+
+        // pause timer
+        this.pause = function () {
+            if (state != 1) return;
+
+            remaining = interval - (new Date() - startTime);
+            window.clearInterval(timerId);
+            state = 2;
+        };
+
+        // resume timer
+        this.resume = function () {
+            if (state != 2) return;
+
+            state = 3;
+            window.setTimeout(this.timeoutCallback, remaining);
+        };
+
+        // callback
+        this.timeoutCallback = function () {
+            if (state != 3) return;
+
+            callback();
+
+            startTime = new Date();
+            timerId = window.setInterval(callback, interval);
+            state = 1;
+        };
+
+        startTime = new Date();
+        timerId = window.setInterval(callback, interval);
+        state = 1;
+    }*/
+
     // Random Integer, 0 thru max - 1
     function randomInt(max) {
         return Math.floor(Math.random() * Math.floor(max));
@@ -186,8 +224,8 @@
         let _canvas = document.getElementById("gameWindow");
         let _context = _canvas.getContext("2d");
 
-        const _INITIAL_HEIGHT = 480;
-        const _INITIAL_WIDTH = 320;
+        const _INITIAL_HEIGHT = 720;
+        const _INITIAL_WIDTH = 480;
         const _RATIO = _INITIAL_WIDTH / _INITIAL_HEIGHT;
         let _currentHeight = _INITIAL_HEIGHT;
         let _currentWidth = _INITIAL_WIDTH;
@@ -296,10 +334,15 @@
         /* jshint validthis: true */
 
         let _lastFrameTime;
+        
+        let _bulletTime = false;
+        let _accelerating = false;
 
         let _entities, _enemies, _player;
         let _spawner;
         let _enemySpawnRate;
+        let _defaultEnemySpeed = 0.5;
+        let _enemySpeed = _defaultEnemySpeed;
 
         let _started = false;
         let _gameOver;
@@ -310,7 +353,6 @@
         // Spawn a wave of enemies
         var _spawnWave = (function () {
             let waveCounter = 0;
-            let enemySpeed = 2;
             let invisTurningPoint = renderer.INITIAL_HEIGHT();
 
             return function () {
@@ -324,19 +366,19 @@
 
                 // Tutorial waves are over, begin turning invisible
                 if (waveCounter == 3) {
-                    invisTurningPoint = invisTurningPoint / 4;
+                    invisTurningPoint = invisTurningPoint / 3;
                     console.log("Activating invisibilty gene...");
                 }
 
                 // Every wave, enemies turn invisible a littler sooner
                 // caps at y = 80
                 if (invisTurningPoint >= 80)
-                    invisTurningPoint -= 5;
+                    invisTurningPoint -= 10;
 
                 for (i = 0; i < 4; i++) {
                     if (i !== openSpot) {
                         enemySpot = (renderer.INITIAL_WIDTH() / 4) * i + 20;
-                        _addEntity(new Enemy(enemySpot, -40, enemySpeed, invisTurningPoint));
+                        _addEntity(new Enemy(enemySpot, -10, _enemySpeed, invisTurningPoint));
                     }
                 }
             };
@@ -359,13 +401,39 @@
                 localStorage.invadersScores = JSON.stringify(_highScores);
             }
         }
-        
+
+        // Speed up wave until past player; player cannot move during this time
+        function _toggleAcceleration() {
+            let i;
+            if (_accelerating) {
+                _enemySpeed = _defaultEnemySpeed;
+                console.log("Slowing down...");
+                for (i = 0; i < _enemies.length; i++) {
+                    _enemies[i].speed = _enemySpeed;
+                }
+                _accelerating = false;
+            }
+            else {
+                console.log("Accelerating...");
+                _enemySpeed = _defaultEnemySpeed * 4;
+                for (i = 0; i < _enemies.length; i++) {
+                    _enemies[i].speed = _enemySpeed;
+                }
+                _accelerating = true;
+            }
+        }
+
+        // End bullet time
+        function _endBulletTime() {
+            _bulletTime = false;
+        }
+
         // Game over
         function _setGameOver() {
             if (!_gameOver) {
                 console.log("game over");
                 _gameOver = true;
-                clearInterval(_spawner);
+                //clearInterval(_spawner);
                 _insertScore(Math.round(game.score()));
             }
         }
@@ -378,7 +446,7 @@
             _gameOver = false;
             _score = 0;
             _highScores = [];
-            _enemySpawnRate = 2000;
+            _enemySpawnRate = 1100;
             _lastFrameTime = 0;
 
             // Access/store high scores in local storage
@@ -393,7 +461,9 @@
 
             // Spawn player & begin spawning enemies
             this.addEntity(new Player(0, renderer.INITIAL_HEIGHT() - 60));
-            _spawner = setInterval(_spawnWave, _enemySpawnRate);
+            //_spawner = new IntervalTimer(_spawnWave, _enemySpawnRate);
+            // Spawn initial wave
+            _spawnWave();
 
             // Begin game loop
             if (!_started) {
@@ -439,11 +509,14 @@
             }
         }
 
+
         // Update game
         function _update(time) {
             let entity;
             let entitiesToRemove = [];
-            //let speedUpAfterXWaves, speedUpRate;
+            let spawningWave = false;
+            let btThreshold = _player.y - 40;
+            let newWaveThreshold = renderer.INITIAL_HEIGHT() / 4;
             let i;
 
             // Smooth FPS
@@ -465,16 +538,35 @@
                 entity = _entities[i];
                 entity.update(dt);
 
-                // Delete offscreen enemies
-                if (collisions.offScreenEntities().includes(entity)) {
-                    entitiesToRemove.push(entity);
+                if (entity instanceof Enemy && entity.y >= newWaveThreshold && entity.y < newWaveThreshold + entity.speed) {
+                        if (!spawningWave)
+                            _spawnWave();
+                        spawningWave = true;
                 }
+
+                /* Stop... hammertime?
+                if (entity instanceof Enemy 
+                    && entity.y >= btThreshold 
+                    && entity.y < btThrehold + entity.speed) {
+                        _bulletTime = true;
+                }
+                
+                // halve enemy speed in bullet time
+                if (entity instanceof Enemy && _bulletTime)
+                    entity.y -= entity.speed / 2;*/
+
+                // Delete offscreen enemies
+                if (collisions.offScreenEntities().includes(entity))
+                    entitiesToRemove.push(entity);
             }
             
+            if (collisions.offScreenEntities().length != 0 && _accelerating)
+                _toggleAcceleration();
 
             _removeEntities(entitiesToRemove);
             collisions.clearOffScreenEntities();
             
+            spawningWave = false;
 
             // Render frame
             renderer.render(dt);
@@ -489,6 +581,9 @@
             addEntity: _addEntity,
             setGameOver: _setGameOver,
             addScore: _addScore,
+            endBulletTime: _endBulletTime,
+            toggleAcceleration: _toggleAcceleration,
+            accelerating: function() { return _accelerating; },
             score: function() { return _score; },
             highScores: function () { return _highScores; },
             gameOver: function() { return _gameOver; },
@@ -516,11 +611,13 @@
         let key = e.which || e.keyCode;
 
         // Move player to spot according to key pressed
-        if( keybinds[key] !== undefined ) {
+        if(keybinds[key] !== undefined && !game.accelerating()) {
             e.preventDefault();
             if (game.player()) {
                 game.player().move(keybinds[key]);
             }
+            
+            game.toggleAcceleration();
         }
     }
 
@@ -584,24 +681,28 @@
         let spot;
     
         e.preventDefault();
+
+        if (!game.accelerating()) {
     
-        for (let i = touches.length - 1; i >= 0; i--) {
-            touchLocation = getRelativeTouchCoords(touches[i]);
-    
-            if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
-                spot = 0;
+            for (let i = touches.length - 1; i >= 0; i--) {
+                touchLocation = getRelativeTouchCoords(touches[i]);
+        
+                if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
+                    spot = 0;
+                }
+                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
+                    spot = 1;
+                }
+                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
+                    spot = 2;
+                }
+                else {
+                    spot = 3;
+                }
+                
+                game.player().move(spot);
+                game.toggleAcceleration();
             }
-            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
-                spot = 1;
-            }
-            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
-                spot = 2;
-            }
-            else {
-                spot = 3;
-            }
-            
-            game.player().move(spot);
         }
     }
 
