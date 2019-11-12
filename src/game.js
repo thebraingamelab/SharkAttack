@@ -1,13 +1,15 @@
 (function () {
     "use strict";
+
+    
     ///////////////////////////////////////
     // Helper functions/objects
     ///////////////////////////////////////
 
     /* a timer that can pause and resume
     function IntervalTimer(callback, interval) {
-        var timerId, startTime, remaining = 0;
-        var state = 0; //  0 = idle, 1 = running, 2 = paused, 3= resumed
+        let timerId, startTime, remaining = 0;
+        let state = 0; //  0 = idle, 1 = running, 2 = paused, 3= resumed
 
         // pause timer
         this.pause = function () {
@@ -76,23 +78,70 @@
             this.top() <= r2.bottom() && this.bottom() >= r2.top();
     };
 
-    function rectUnion(r1, r2) {
-        let x, y, width, height;
-
-        if( r1 === undefined ) {
-            return r2;
-        }
+    Rectangle.prototype.union = function (r2) {
+        var x, y, width, height;
+    
         if( r2 === undefined ) {
-            return r1;
+            return;
         }
+    
+        x = Math.min( this.x, r2.x );
+        y = Math.min( this.y, r2.y );
+    
+        width = Math.max( this.right(), r2.right() ) -
+                Math.min( this.left(), r2.left() );
+    
+        height = Math.max( this.bottom(), r2.bottom() ) -
+                 Math.min( this.top(), r2.top() );
+    
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    };
 
-        x = Math.min( r1.x, r2.x );
-        y = Math.min( r1.y, r2.y );
-        width = Math.max( r1.right(), r2.right() ) - Math.min( r1.left(), r2.left() );
-        height = Math.max( r1.bottom(), r2.bottom() ) - Math.min( r1.top(), r2.top() );
 
-        return new Rectangle(x, y, width, height);
+    // Sprite Object
+    function Sprite(imgPath, frameSize, frames, frameRate, row, col) {
+        let spriteImage = document.createElement("img");
+        let image = document.createElement("img");
+
+        spriteImage.addEventListener("error", function() {console.log("Image failed!");}, false);
+        spriteImage.addEventListener("load",  function () {
+            let spriteCanvas = document.createElement("canvas");
+            let spriteContext = spriteCanvas.getContext('2d');
+            
+            
+            spriteCanvas.width = spriteImage.width;
+            spriteCanvas.height = spriteImage.height;
+
+            spriteContext.drawImage(spriteImage,
+                                    0, 0, spriteImage.width, spriteImage.height,
+                                    0, 0, spriteCanvas.width, spriteCanvas.height);
+
+            image.src = spriteCanvas.toDataURL('image/png');
+        }, false);
+
+        spriteImage.src = imgPath;
+
+        this.frameSize = frameSize;
+        this.row = row;
+        this.col = col;
+        this.frames = frames;
+        this.frameRate = frameRate;
+        this.timer = 0;
+        this.currentFrame = 0;
+        this.image = image;
     }
+
+    Sprite.prototype.update = function (dt) {
+        this.timer += dt;
+        if (this.timer > 1/this.frameRate) {
+            this.timer = 0;
+
+            this.currentFrame = (this.currentFrame+1) % this.frames;
+        }
+    };
 
 
     ///////////////////////////////////////
@@ -221,6 +270,10 @@
 
     // Renderer
     renderer = (function () {
+        let _playerSprite = new Sprite("build/sprites/animals.png", [26, 36], 1, 1, 3, 4);
+        let _enemySprite = new Sprite("build/sprites/animals.png", [26, 36], 3, 3, 4, 6);
+        let _sprites = [].concat(_playerSprite, _enemySprite);
+
         let _canvas = document.getElementById("gameWindow");
         let _context = _canvas.getContext("2d");
 
@@ -267,21 +320,36 @@
             }, 1);
         }
 
+        // Draw a sprite to the context
+        function _drawSprite(sprite, entity, width, height) {
+            let frameHeight = sprite.frameSize[1];
+            let frameWidth = sprite.frameSize[0];
+            //_context.drawImage(sprite.image, 0, 0, sprite.image.width, sprite.image.height, 0, 0, sprite.image.width, sprite.image.height);
+            _context.drawImage(sprite.image,
+                               (sprite.col*frameWidth) + frameWidth*sprite.currentFrame,
+                               (sprite.row*frameHeight),
+                               frameWidth, frameHeight,
+                               entity.x, entity.y,
+                               width, height);
+        }
+
         // Render enemy at its coords
         function _drawEnemy(context, enemy) {
             // Still visible
             if (enemy.y < enemy.invisPointY) {
-                context.fillStyle = "red";
-                context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                //context.fillStyle = "red";
+                //context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                
+                _drawSprite(_enemySprite, enemy, enemy.width*2, enemy.height*6);
             }
             // Under water
             else {
-                // Visualize turning point
-                context.setLineDash([5, 3]);/*dashes are 5px and spaces are 3px*/
+                /* Visualize turning point
+                context.setLineDash([5, 3]);//dashes are 5px and spaces are 3px
                 context.beginPath();
                 context.moveTo(0, enemy.invisPointY+enemy.height);
                 context.lineTo(_INITIAL_WIDTH, enemy.invisPointY+enemy.height);
-                context.stroke();
+                context.stroke();*/
 
                 context.fillStyle = "white";
                 context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
@@ -290,8 +358,10 @@
         
         // Render player at its coords
         function _drawPlayer(context, player) {
-            context.fillStyle = "green";
-            context.fillRect(player.x, player.y, player.width, player.height);
+            //context.fillStyle = "green";
+            //context.fillRect(player.x, player.y, player.width, player.height);
+           
+            _drawSprite(_playerSprite, player, player.width, player.height);
         }
 
         // Render game elements and entities
@@ -302,7 +372,14 @@
 
             // Fill background
             _context.fillStyle = "blue";
-            _context.fillRect(0, 0, _canvas.width, _canvas.height);
+            _context.fillRect(0, 0, _INITIAL_WIDTH, _INITIAL_HEIGHT);
+
+            // Update Sprites
+            if (game.accelerating()) {
+                for(i = _sprites.length-1; i >= 0; i--) {
+                    _sprites[i].update(dt);
+                }
+            }
 
             // Draw every game entity
             for(i = 0; i < entities.length; i++) {
@@ -335,13 +412,10 @@
 
         let _lastFrameTime;
         
-        let _bulletTime = false;
-        let _accelerating = false;
+        let _accelerating = true;
 
         let _entities, _enemies, _player;
-        let _spawner;
-        let _enemySpawnRate;
-        let _defaultEnemySpeed = 0.5;
+        let _defaultEnemySpeed = 1;
         let _enemySpeed = _defaultEnemySpeed;
 
         let _started = false;
@@ -351,9 +425,10 @@
         let _highScores;
 
         // Spawn a wave of enemies
-        var _spawnWave = (function () {
+        let _spawnWave = (function () {
             let waveCounter = 0;
-            let invisTurningPoint = renderer.INITIAL_HEIGHT();
+            // Initialize to something that enemies will never reach
+            let invisTurningPoint = renderer.INITIAL_HEIGHT() * 2;
 
             return function () {
                 let openSpot = randomInt(4);
@@ -365,8 +440,8 @@
                 console.log("wave " + waveCounter);
 
                 // Tutorial waves are over, begin turning invisible
-                if (waveCounter == 3) {
-                    invisTurningPoint = invisTurningPoint / 3;
+                if (waveCounter == 5) {
+                    invisTurningPoint = renderer.INITIAL_HEIGHT() / 2;
                     console.log("Activating invisibilty gene...");
                 }
 
@@ -406,26 +481,22 @@
         function _toggleAcceleration() {
             let i;
             if (_accelerating) {
-                _enemySpeed = _defaultEnemySpeed;
-                console.log("Slowing down...");
+                _enemySpeed = 0;
+                console.log("STOP...");
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
                 }
                 _accelerating = false;
             }
             else {
-                console.log("Accelerating...");
-                _enemySpeed = _defaultEnemySpeed * 4;
+                console.log("hammertime");
+                _enemySpeed = _defaultEnemySpeed;
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
+                    _enemies[i].y += _enemySpeed;
                 }
                 _accelerating = true;
             }
-        }
-
-        // End bullet time
-        function _endBulletTime() {
-            _bulletTime = false;
         }
 
         // Game over
@@ -433,7 +504,6 @@
             if (!_gameOver) {
                 console.log("game over");
                 _gameOver = true;
-                //clearInterval(_spawner);
                 _insertScore(Math.round(game.score()));
             }
         }
@@ -446,7 +516,6 @@
             _gameOver = false;
             _score = 0;
             _highScores = [];
-            _enemySpawnRate = 1100;
             _lastFrameTime = 0;
 
             // Access/store high scores in local storage
@@ -461,7 +530,6 @@
 
             // Spawn player & begin spawning enemies
             this.addEntity(new Player(0, renderer.INITIAL_HEIGHT() - 60));
-            //_spawner = new IntervalTimer(_spawnWave, _enemySpawnRate);
             // Spawn initial wave
             _spawnWave();
 
@@ -515,7 +583,7 @@
             let entity;
             let entitiesToRemove = [];
             let spawningWave = false;
-            let btThreshold = _player.y - 40;
+            let stoppingThreshold = _player.y - _player.height;
             let newWaveThreshold = renderer.INITIAL_HEIGHT() / 4;
             let i;
 
@@ -538,30 +606,26 @@
                 entity = _entities[i];
                 entity.update(dt);
 
-                if (entity instanceof Enemy && entity.y >= newWaveThreshold && entity.y < newWaveThreshold + entity.speed) {
-                        if (!spawningWave)
-                            _spawnWave();
+                if (entity instanceof Enemy &&
+                    !spawningWave &&
+                    entity.y >= newWaveThreshold &&
+                    entity.y < newWaveThreshold + entity.speed) {
+                        _spawnWave();
                         spawningWave = true;
                 }
 
-                /* Stop... hammertime?
-                if (entity instanceof Enemy 
-                    && entity.y >= btThreshold 
-                    && entity.y < btThrehold + entity.speed) {
-                        _bulletTime = true;
+                // Is it hammertime?
+                if (entity instanceof Enemy &&
+                    _accelerating &&
+                    entity.y >= stoppingThreshold &&
+                    entity.y < stoppingThreshold + entity.speed) {
+                        _toggleAcceleration();
                 }
-                
-                // halve enemy speed in bullet time
-                if (entity instanceof Enemy && _bulletTime)
-                    entity.y -= entity.speed / 2;*/
 
                 // Delete offscreen enemies
                 if (collisions.offScreenEntities().includes(entity))
                     entitiesToRemove.push(entity);
             }
-            
-            if (collisions.offScreenEntities().length != 0 && _accelerating)
-                _toggleAcceleration();
 
             _removeEntities(entitiesToRemove);
             collisions.clearOffScreenEntities();
@@ -581,7 +645,6 @@
             addEntity: _addEntity,
             setGameOver: _setGameOver,
             addScore: _addScore,
-            endBulletTime: _endBulletTime,
             toggleAcceleration: _toggleAcceleration,
             accelerating: function() { return _accelerating; },
             score: function() { return _score; },
@@ -611,13 +674,14 @@
         let key = e.which || e.keyCode;
 
         // Move player to spot according to key pressed
-        if(keybinds[key] !== undefined && !game.accelerating()) {
+        if(keybinds[key] !== undefined) {
             e.preventDefault();
             if (game.player()) {
                 game.player().move(keybinds[key]);
             }
             
-            game.toggleAcceleration();
+            if (!game.accelerating())
+                game.toggleAcceleration();
         }
     }
 
@@ -627,44 +691,42 @@
     // Touch input
     ///////////////////////////////////////
 
+    // Get left offset of element
+    function getOffsetLeft(elem) {
+        let offsetLeft = 0;
+
+        // Add px to left offset...
+        do {
+            if( !isNaN(elem.offsetLeft) ) {
+                offsetLeft += elem.offsetLeft;
+            }
+
+            // for each elem until there's no more parent element
+            elem = elem.offsetParent;
+        } while(elem !== null);
+
+        // Return left offset
+        return offsetLeft;
+    }
+
+    // Get top offset of element
+    function getOffsetTop(elem) {
+        let offsetTop = 0;
+
+        do {
+            if( !isNaN(elem.offsetTop) ) {
+                offsetTop += elem.offsetTop;
+            }
+
+            elem = elem.offsetParent;
+        } while(elem !== null);
+
+        return offsetTop;
+    }
+
     // Return object with touch location 
     // x and y in game coords
-    function getRelativeTouchCoords(touch) {
-
-        // Get left offset of element
-        function getOffsetLeft(elem) {
-            let offsetLeft = 0;
-
-            // Add px to left offset...
-            do {
-                if( !isNaN(elem.offsetLeft) ) {
-                    offsetLeft += elem.offsetLeft;
-                }
-
-                // for each elem until there's no more parent element
-                elem = elem.offsetParent;
-            } while(elem !== null);
-
-            // Return left offset
-            return offsetLeft;
-        }
-    
-        // Get top offset of element
-        function getOffsetTop(elem) {
-            let offsetTop = 0;
-
-            do {
-                if( !isNaN(elem.offsetTop) ) {
-                    offsetTop += elem.offsetTop;
-                }
-
-                elem = elem.offsetParent;
-            } while(elem !== null);
-
-            return offsetTop;
-        }
-        
-        // Scale touch coords correctly
+    function getRelativeTouchCoords(touch) {// Scale touch coords correctly
         let scale = renderer.currentWidth() / renderer.INITIAL_WIDTH();
         let x = touch.pageX - getOffsetLeft(renderer.canvas());
         let y = touch.pageY - getOffsetTop(renderer.canvas());
@@ -682,27 +744,27 @@
     
         e.preventDefault();
 
-        if (!game.accelerating()) {
+        for (let i = touches.length - 1; i >= 0; i--) {
+            touchLocation = getRelativeTouchCoords(touches[i]);
     
-            for (let i = touches.length - 1; i >= 0; i--) {
-                touchLocation = getRelativeTouchCoords(touches[i]);
-        
-                if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
-                    spot = 0;
-                }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
-                    spot = 1;
-                }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
-                    spot = 2;
-                }
-                else {
-                    spot = 3;
-                }
-                
-                game.player().move(spot);
-                game.toggleAcceleration();
+            if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
+                spot = 0;
             }
+            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
+                spot = 1;
+            }
+            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
+                spot = 2;
+            }
+            else {
+                spot = 3;
+            }
+            
+            game.player().move(spot);
+
+            if (!game.accelerating())
+                game.toggleAcceleration();
+            
         }
     }
 
@@ -713,5 +775,7 @@
     ///////////////////////////////////////
 
     game.start();
+
+    
     
 })();
