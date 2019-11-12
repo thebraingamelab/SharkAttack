@@ -329,7 +329,7 @@
                                (sprite.col*frameWidth) + frameWidth*sprite.currentFrame,
                                (sprite.row*frameHeight),
                                frameWidth, frameHeight,
-                               entity.x, entity.y,
+                               entity.x, entity.y-height/2,
                                width, height);
         }
 
@@ -340,7 +340,7 @@
                 //context.fillStyle = "red";
                 //context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
                 
-                _drawSprite(_enemySprite, enemy, enemy.width*2, enemy.height*6);
+                _drawSprite(_enemySprite, enemy, enemy.width*1.5, enemy.height*6);
             }
             // Under water
             else {
@@ -361,7 +361,7 @@
             //context.fillStyle = "green";
             //context.fillRect(player.x, player.y, player.width, player.height);
            
-            _drawSprite(_playerSprite, player, player.width, player.height);
+            _drawSprite(_playerSprite, player, player.width*1.5, player.height*1.5);
         }
 
         // Render game elements and entities
