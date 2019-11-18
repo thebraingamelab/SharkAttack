@@ -102,7 +102,9 @@
 
 
     // Sprite Object
-    function Sprite(imgPath, frameSize, frames, frameRate, row, col) {
+    function Sprite() {}
+
+    Sprite.prototype.animated = function (imgPath, frameWidth, frameHeight, frames, frameRate, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
 
@@ -111,20 +113,22 @@
             let spriteCanvas = document.createElement("canvas");
             let spriteContext = spriteCanvas.getContext('2d');
             
-            
-            spriteCanvas.width = spriteImage.width;
-            spriteCanvas.height = spriteImage.height;
+            spriteCanvas.width = frameWidth*frames;
+            spriteCanvas.height = frameHeight;
 
             spriteContext.drawImage(spriteImage,
-                                    0, 0, spriteImage.width, spriteImage.height,
-                                    0, 0, spriteCanvas.width, spriteCanvas.height);
+                                    col*frameWidth, row*frameHeight,
+                                    frameWidth*frames, frameHeight,
+                                    0, 0,
+                                    frameWidth*frames, frameHeight);
 
             image.src = spriteCanvas.toDataURL('image/png');
         }, false);
 
         spriteImage.src = imgPath;
 
-        this.frameSize = frameSize;
+        this.frameWidth = frameWidth;
+        this.frameHeight = frameHeight;
         this.row = row;
         this.col = col;
         this.frames = frames;
@@ -132,14 +136,51 @@
         this.timer = 0;
         this.currentFrame = 0;
         this.image = image;
-    }
+
+        return this;
+    };
+
+    Sprite.prototype.static = function (imgPath, frameWidth, frameHeight, row, col) {
+        let spriteImage = document.createElement("img");
+        let image = document.createElement("img");
+
+        spriteImage.addEventListener("error", function() {console.log("Image failed!");}, false);
+        spriteImage.addEventListener("load",  function () {
+            let spriteCanvas = document.createElement("canvas");
+            let spriteContext = spriteCanvas.getContext('2d');
+            
+            spriteCanvas.width = frameWidth;
+            spriteCanvas.height = frameHeight;
+
+            spriteContext.drawImage(spriteImage,
+                                    col*frameWidth, row*frameHeight,
+                                    frameWidth, frameHeight,
+                                    0, 0,
+                                    frameWidth, frameHeight);
+
+            image.src = spriteCanvas.toDataURL('image/png');
+        }, false);
+
+        spriteImage.src = imgPath;
+
+        this.frameWidth = frameWidth;
+        this.frameHeight = frameHeight;
+        this.row = row;
+        this.col = col;
+        this.frameRate = 0;
+        this.image = image;
+
+        return this;
+    };
 
     Sprite.prototype.update = function (dt) {
-        this.timer += dt;
-        if (this.timer > 1/this.frameRate) {
-            this.timer = 0;
+        if (this.frameRate !== 0) {
+            this.timer += dt;
+            if (this.timer > 1/this.frameRate) {
+                this.timer = 0;
 
-            this.currentFrame = (this.currentFrame+1) % this.frames;
+                this.currentFrame = (this.currentFrame+1) % this.frames;
+            }
         }
     };
 
@@ -177,6 +218,7 @@
         Entity.call(this, x, y, 40, 40);
 
         this.rangeOfMovement = 4;
+        this.energy = 100;
         this.move(0);
     }
 
@@ -186,6 +228,22 @@
     // Update time step
     Player.prototype.update = function (dt) {
         Entity.prototype.update.call(this, dt);
+    };
+
+    // Increase energy
+    Player.prototype.addEnergy = function () {
+        this.energy += 25;
+        
+        if (this.energy >= 100)
+            this.energy = 100;
+    };
+
+    // Decrease energy
+    Player.prototype.loseEnergy = function () {
+        this.energy -= 25;
+
+        if (this.energy <= 0)
+            game.setGameOver();
     };
 
     // Move player to a spot 1-4
@@ -220,7 +278,7 @@
 
     // Collisions handler
     collisions = (function () {
-        let _offScreenEntities = [];
+        let _entitiesToRemove = [];
 
         function _update(dt) {
             let enemies = game.enemies();
@@ -235,44 +293,47 @@
 
                 // Enemy hits player
                 if (enemy && player && enemyHitbox.intersects(playerHitbox) ) {
-                    // Resolve Collision (player loses)
-                    game.setGameOver();
+                    // Resolve Collision (player gets energy)
+                    player.addEnergy();
+                    _entitiesToRemove.push(enemy);
                 }
                 // Enemy goes off screen
                 else if (enemy && (enemyHitbox.top() > renderer.INITIAL_HEIGHT())) {
-                    _offScreenEntities.push(enemy);
-                    game.addScore(1);
+                    _entitiesToRemove.push(enemy);
+                    player.loseEnergy();
                 }
             }
         }
 
-        function _clearOffScreenEntities() {
-            if (!_offScreenEntities) {
+        function _clearEntitiesToRemove() {
+            if (!_entitiesToRemove) {
                 return;
             }
 
             // Quick helper function to check if
             // a thing is not in entities array
             function isNotInEntities(item) {
-                return !_offScreenEntities.includes(item);
+                return !_entitiesToRemove.includes(item);
             }
 
             // Clear entities
-            _offScreenEntities = _offScreenEntities.filter(isNotInEntities);
+            _entitiesToRemove = _entitiesToRemove.filter(isNotInEntities);
         }
 
         return {
             update: _update,
-            clearOffScreenEntities: _clearOffScreenEntities,
-            offScreenEntities: function () { return _offScreenEntities; }
+            clearEntitiesToRemove: _clearEntitiesToRemove,
+            entitiesToRemove: function () { return _entitiesToRemove; }
         };
     })();
 
     // Renderer
     renderer = (function () {
-        let _playerSprite = new Sprite("build/sprites/animals.png", [26, 36], 1, 1, 3, 4);
-        let _enemySprite = new Sprite("build/sprites/animals.png", [26, 36], 3, 3, 4, 6);
+        let _playerSprite = new Sprite().animated("build/sprites/animals.png", 26, 36, 1, 1, 3, 4);
+        let _enemySprite = new Sprite().animated("build/sprites/animals.png", 26, 36, 3, 3, 4, 6);
+        let _bgImg = new Sprite().static("build/sprites/grassland.png", 128, 128, 4, 6);
         let _sprites = [].concat(_playerSprite, _enemySprite);
+        
 
         let _canvas = document.getElementById("gameWindow");
         let _context = _canvas.getContext("2d");
@@ -321,26 +382,28 @@
         }
 
         // Draw a sprite to the context
-        function _drawSprite(sprite, entity, width, height) {
-            let frameHeight = sprite.frameSize[1];
-            let frameWidth = sprite.frameSize[0];
-            //_context.drawImage(sprite.image, 0, 0, sprite.image.width, sprite.image.height, 0, 0, sprite.image.width, sprite.image.height);
-            _context.drawImage(sprite.image,
-                               (sprite.col*frameWidth) + frameWidth*sprite.currentFrame,
-                               (sprite.row*frameHeight),
-                               frameWidth, frameHeight,
-                               entity.x, entity.y-height/2,
-                               width, height);
+        function _drawSprite(sprite, x, y, width, height) {
+            if (sprite.frameRate === 0) {
+                _context.drawImage(sprite.image, x, y, width, height);
+            }
+            else {
+                _context.drawImage(sprite.image,
+                                    sprite.frameWidth*sprite.currentFrame, 0,
+                                    sprite.frameWidth, sprite.frameHeight,
+                                    x, y,
+                                    width, height);
+            }
         }
 
         // Render enemy at its coords
-        function _drawEnemy(context, enemy) {
+        function _drawEnemy(enemy) {
             // Still visible
             if (enemy.y < enemy.invisPointY) {
                 //context.fillStyle = "red";
                 //context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
                 
-                _drawSprite(_enemySprite, enemy, enemy.width*1.5, enemy.height*6);
+                _drawSprite(_enemySprite, enemy.x, enemy.y-enemy.height/2, 
+                                    enemy.width*1.5, enemy.height*6);
             }
             // Under water
             else {
@@ -351,17 +414,34 @@
                 context.lineTo(_INITIAL_WIDTH, enemy.invisPointY+enemy.height);
                 context.stroke();*/
 
-                context.fillStyle = "white";
-                context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
+                _context.fillStyle = "white";
+                _context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
             }
         }
         
         // Render player at its coords
-        function _drawPlayer(context, player) {
-            //context.fillStyle = "green";
-            //context.fillRect(player.x, player.y, player.width, player.height);
+        function _drawPlayer(player) {
+            //_context.fillStyle = "green";
+            //_context.fillRect(player.x, player.y, player.width, player.height);
            
-            _drawSprite(_playerSprite, player, player.width*1.5, player.height*1.5);
+            _drawSprite(_playerSprite, player.x, player.y-player.height/2,
+                        player.width*1.5, player.height*1.5);
+        }
+
+        function _drawBG() {
+            /*_context.fillStyle = "blue";
+            _context.fillRect(0, 0, _INITIAL_WIDTH, _INITIAL_HEIGHT);*/
+            let i, j;
+            let bgTileSize = 128;
+            let horizontalTiles = _INITIAL_WIDTH/bgTileSize;
+            let verticalTiles = _INITIAL_HEIGHT/bgTileSize;
+            
+
+            for (i = 0; i <= horizontalTiles; i++) {
+                for(j = 0; j <= verticalTiles; j++) {
+                    _drawSprite(_bgImg, i*bgTileSize, j*bgTileSize, bgTileSize, bgTileSize);
+                }
+            }
         }
 
         // Render game elements and entities
@@ -371,8 +451,7 @@
             let i;
 
             // Fill background
-            _context.fillStyle = "blue";
-            _context.fillRect(0, 0, _INITIAL_WIDTH, _INITIAL_HEIGHT);
+            _drawBG();
 
             // Update Sprites
             if (game.accelerating()) {
@@ -386,10 +465,10 @@
                 entity = entities[i];
 
                 if (entity instanceof Enemy) {
-                    _drawEnemy(_context, entity);
+                    _drawEnemy(entity);
                 }
                 else if (entity instanceof Player) {
-                    _drawPlayer(_context, entity);
+                    _drawPlayer(entity);
                 }
             }
 
@@ -429,18 +508,23 @@
             let waveCounter = 0;
             // Initialize to something that enemies will never reach
             let invisTurningPoint = renderer.INITIAL_HEIGHT() * 2;
+            let invisTurningWave = 5;
 
             return function () {
-                let openSpot = randomInt(4);
-                let enemySpot;
-                let i;
+                let goodSpot = (renderer.INITIAL_WIDTH() / _player.rangeOfMovement) * 
+                                randomInt(_player.rangeOfMovement) + 20;
+                //let enemySpot;
+                //let i;
 
                 // Increment spawned waves counter
                 waveCounter++;
                 console.log("wave " + waveCounter);
 
                 // Tutorial waves are over, begin turning invisible
-                if (waveCounter == 5) {
+                if (waveCounter == invisTurningWave-1) {
+                    console.log("Invisibility gene active on next wave!");
+                }
+                else if (waveCounter == invisTurningWave) {
                     invisTurningPoint = renderer.INITIAL_HEIGHT() / 2;
                     console.log("Activating invisibilty gene...");
                 }
@@ -449,13 +533,16 @@
                 // caps at y = 80
                 if (invisTurningPoint >= 80)
                     invisTurningPoint -= 10;
+                
+                // make an enemy
+                _addEntity(new Enemy(goodSpot, -10, _enemySpeed, invisTurningPoint));
 
-                for (i = 0; i < 4; i++) {
-                    if (i !== openSpot) {
+                /*for (i = 0; i < 4; i++) {
+                    if (i !== goodSpot) {
                         enemySpot = (renderer.INITIAL_WIDTH() / 4) * i + 20;
                         _addEntity(new Enemy(enemySpot, -10, _enemySpeed, invisTurningPoint));
                     }
-                }
+                }*/
             };
         })();
 
@@ -622,13 +709,13 @@
                         _toggleAcceleration();
                 }
 
-                // Delete offscreen enemies
-                if (collisions.offScreenEntities().includes(entity))
+                // Delete offscreen or absorbed enemies
+                if (collisions.entitiesToRemove().includes(entity))
                     entitiesToRemove.push(entity);
             }
 
             _removeEntities(entitiesToRemove);
-            collisions.clearOffScreenEntities();
+            collisions.clearEntitiesToRemove();
             
             spawningWave = false;
 

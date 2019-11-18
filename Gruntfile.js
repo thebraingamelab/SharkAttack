@@ -71,7 +71,7 @@ module.exports = function(grunt) {
       },
 
       clean: {
-        build: ['build/**/*']
+        build: ['build/*.js']
       }
     });
 
@@ -84,5 +84,5 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-concat');
 
     // Run default tasks
-    grunt.registerTask('default', ['jshint', 'clean', 'imagemin', 'concat', 'terser']);
+    grunt.registerTask('default', ['jshint', 'clean', 'concat', 'terser']);
 };
