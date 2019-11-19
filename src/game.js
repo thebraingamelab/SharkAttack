@@ -104,7 +104,8 @@
     // Sprite Object
     function Sprite() {}
 
-    Sprite.prototype.animated = function (imgPath, frameWidth, frameHeight, frames, frameRate, row, col) {
+    Sprite.prototype.animated = function (imgPath, frameWidth, frameHeight,
+                                          frames, frameRate, loopOnce, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
 
@@ -135,6 +136,7 @@
         this.frameRate = frameRate;
         this.timer = 0;
         this.currentFrame = 0;
+        this.loopOnce = loopOnce;
         this.image = image;
 
         return this;
@@ -168,6 +170,8 @@
         this.row = row;
         this.col = col;
         this.frameRate = 0;
+        this.frames = 0;
+        this.currentFrame = 0;
         this.image = image;
 
         return this;
@@ -176,10 +180,16 @@
     Sprite.prototype.update = function (dt) {
         if (this.frameRate !== 0) {
             this.timer += dt;
+            
             if (this.timer > 1/this.frameRate) {
                 this.timer = 0;
 
-                this.currentFrame = (this.currentFrame+1) % this.frames;
+                if (this.currentFrame <= this.frames);
+                    this.currentFrame++;
+
+                if (this.currentFrame >= this.frames && !this.loopOnce)
+                    this.currentFrame = 0;
+                //this.currentFrame = (this.currentFrame+1) % this.frames;
             }
         }
     };
@@ -218,7 +228,8 @@
         Entity.call(this, x, y, 40, 40);
 
         this.rangeOfMovement = 4;
-        this.energy = 100;
+        this.capacity = 75;
+        this.energy = this.capacity;
         this.move(0);
     }
 
@@ -234,8 +245,8 @@
     Player.prototype.addEnergy = function () {
         this.energy += 25;
         
-        if (this.energy >= 100)
-            this.energy = 100;
+        if (this.energy >= this.capacity)
+            this.energy = this.capacity;
     };
 
     // Decrease energy
@@ -329,10 +340,12 @@
 
     // Renderer
     renderer = (function () {
-        let _playerSprite = new Sprite().animated("build/sprites/animals.png", 26, 36, 1, 1, 3, 4);
-        let _enemySprite = new Sprite().animated("build/sprites/animals.png", 26, 36, 3, 3, 4, 6);
+        let _playerWalkingUp = new Sprite().animated("build/sprites/animals.png", 26, 36, 3, 6, false, 3, 3);
+        let _playerIdle = new Sprite().static("build/sprites/animals.png", 26, 36, 3, 4);
+        let _playerExplode = new Sprite().animated("build/sprites/explosion.png", 223, 174, 22, 22, true, 0, 0);
+        let _enemySprite = new Sprite().static("build/sprites/animals.png", 26, 36, 4, 7);
         let _bgImg = new Sprite().static("build/sprites/grassland.png", 128, 128, 4, 6);
-        let _sprites = [].concat(_playerSprite, _enemySprite);
+        let _animatedSprites = [_playerWalkingUp];
         
 
         let _canvas = document.getElementById("gameWindow");
@@ -383,8 +396,12 @@
 
         // Draw a sprite to the context
         function _drawSprite(sprite, x, y, width, height) {
-            if (sprite.frameRate === 0) {
-                _context.drawImage(sprite.image, x, y, width, height);
+            if (sprite.frameRate === 0 || (sprite.loopOnce && sprite.currentFrame >= sprite.frames)) {
+                _context.drawImage(sprite.image,
+                                    sprite.frameWidth*sprite.frames, 0,
+                                    sprite.frameWidth, sprite.frameHeight,
+                                    x, y,
+                                    width, height);
             }
             else {
                 _context.drawImage(sprite.image,
@@ -396,53 +413,52 @@
         }
 
         // Render enemy at its coords
-        function _drawEnemy(enemy) {
+        function _drawEnemy(enemy, sprite) {
             // Still visible
             if (enemy.y < enemy.invisPointY) {
-                //context.fillStyle = "red";
-                //context.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-                
-                _drawSprite(_enemySprite, enemy.x, enemy.y-enemy.height/2, 
+                _drawSprite(sprite, enemy.x, enemy.y-enemy.height/2, 
                                     enemy.width*1.5, enemy.height*6);
             }
-            // Under water
+            // Invisible
             else {
-                /* Visualize turning point
-                context.setLineDash([5, 3]);//dashes are 5px and spaces are 3px
-                context.beginPath();
-                context.moveTo(0, enemy.invisPointY+enemy.height);
-                context.lineTo(_INITIAL_WIDTH, enemy.invisPointY+enemy.height);
-                context.stroke();*/
-
                 _context.fillStyle = "white";
                 _context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
             }
         }
         
         // Render player at its coords
-        function _drawPlayer(player) {
-            //_context.fillStyle = "green";
-            //_context.fillRect(player.x, player.y, player.width, player.height);
-           
-            _drawSprite(_playerSprite, player.x, player.y-player.height/2,
+        function _drawPlayer(player, sprite) {
+            _drawSprite(sprite, player.x, player.y-player.height/2,
                         player.width*1.5, player.height*1.5);
         }
 
-        function _drawBG() {
-            /*_context.fillStyle = "blue";
-            _context.fillRect(0, 0, _INITIAL_WIDTH, _INITIAL_HEIGHT);*/
-            let i, j;
-            let bgTileSize = 128;
-            let horizontalTiles = _INITIAL_WIDTH/bgTileSize;
-            let verticalTiles = _INITIAL_HEIGHT/bgTileSize;
-            
+        // Draw moving background
+        let _drawBG = (function () {
+            let bgTileSize = 64;
+            let y = 0;
+            let movingSpeed = 6;
 
-            for (i = 0; i <= horizontalTiles; i++) {
-                for(j = 0; j <= verticalTiles; j++) {
-                    _drawSprite(_bgImg, i*bgTileSize, j*bgTileSize, bgTileSize, bgTileSize);
+            return function () {
+                let i, j;
+                let horizontalTiles = _INITIAL_WIDTH/bgTileSize;
+                let verticalTiles = _INITIAL_HEIGHT/bgTileSize;
+                
+
+                for (i = 0; i <= horizontalTiles; i++) {
+                    for(j = -1; j <= verticalTiles; j++) {
+                        _drawSprite(_bgImg, i*bgTileSize, j*bgTileSize+y,
+                                    bgTileSize, bgTileSize);
+                    }
                 }
-            }
-        }
+
+                if (game.accelerating() && !game.gameOver())
+                    y += movingSpeed;
+
+                if (y >= bgTileSize) {
+                    y = 0;
+                }
+            };
+        })();
 
         // Render game elements and entities
         function _render(dt) {
@@ -455,8 +471,8 @@
 
             // Update Sprites
             if (game.accelerating()) {
-                for(i = _sprites.length-1; i >= 0; i--) {
-                    _sprites[i].update(dt);
+                for(i = _animatedSprites.length-1; i >= 0; i--) {
+                    _animatedSprites[i].update(dt);
                 }
             }
 
@@ -465,10 +481,16 @@
                 entity = entities[i];
 
                 if (entity instanceof Enemy) {
-                    _drawEnemy(entity);
+                    _drawEnemy(entity, _enemySprite);
                 }
                 else if (entity instanceof Player) {
-                    _drawPlayer(entity);
+                    if (game.gameOver()) {
+                        _playerExplode.update(dt);
+                        _drawSprite(_playerExplode, entity.x, entity.y-entity.height/2,
+                            entity.width*1.5, entity.height*1.5);
+                    }
+                    else
+                        _drawPlayer(entity, _playerWalkingUp);
                 }
             }
 
@@ -491,10 +513,10 @@
 
         let _lastFrameTime;
         
-        let _accelerating = true;
+        let _accelerating = false;
 
         let _entities, _enemies, _player;
-        let _defaultEnemySpeed = 1;
+        let _defaultEnemySpeed = 0;
         let _enemySpeed = _defaultEnemySpeed;
 
         let _started = false;
@@ -568,7 +590,7 @@
         function _toggleAcceleration() {
             let i;
             if (_accelerating) {
-                _enemySpeed = 0;
+                _enemySpeed = _defaultEnemySpeed;
                 console.log("STOP...");
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
@@ -577,10 +599,9 @@
             }
             else {
                 console.log("hammertime");
-                _enemySpeed = _defaultEnemySpeed;
+                _enemySpeed = 6;
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
-                    _enemies[i].y += _enemySpeed;
                 }
                 _accelerating = true;
             }
@@ -682,6 +703,8 @@
             // Stop game if game over is reached
             if (_gameOver) {
                 _started = false;
+                renderer.render(dt);
+                requestAnimationFrame(this.update.bind(this));
                 return;
             }
 
@@ -761,14 +784,13 @@
         let key = e.which || e.keyCode;
 
         // Move player to spot according to key pressed
-        if(keybinds[key] !== undefined) {
+        if(keybinds[key] !== undefined && !game.accelerating()) {
             e.preventDefault();
             if (game.player()) {
                 game.player().move(keybinds[key]);
             }
-            
-            if (!game.accelerating())
-                game.toggleAcceleration();
+
+            game.toggleAcceleration();
         }
     }
 
@@ -831,27 +853,26 @@
     
         e.preventDefault();
 
-        for (let i = touches.length - 1; i >= 0; i--) {
-            touchLocation = getRelativeTouchCoords(touches[i]);
-    
-            if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
-                spot = 0;
-            }
-            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
-                spot = 1;
-            }
-            else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
-                spot = 2;
-            }
-            else {
-                spot = 3;
-            }
-            
-            game.player().move(spot);
-
-            if (!game.accelerating())
+        if (!game.accelerating()) {
+            for (let i = touches.length - 1; i >= 0; i--) {
+                touchLocation = getRelativeTouchCoords(touches[i]);
+        
+                if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
+                    spot = 0;
+                }
+                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
+                    spot = 1;
+                }
+                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
+                    spot = 2;
+                }
+                else {
+                    spot = 3;
+                }
+                
+                game.player().move(spot);
                 game.toggleAcceleration();
-            
+            }
         }
     }
 
