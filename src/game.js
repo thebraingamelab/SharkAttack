@@ -75,7 +75,7 @@
 
     Rectangle.prototype.intersects = function (r2) {
         return this.right() >= r2.left() && this.left() <= r2.right() &&
-            this.top() <= r2.bottom() && this.bottom() >= r2.top();
+               this.top() <= r2.bottom() && this.bottom() >= r2.top();
     };
 
     Rectangle.prototype.union = function (r2) {
@@ -104,6 +104,7 @@
     // Sprite Object
     function Sprite() {}
 
+    // Constructor for animated sprites
     Sprite.prototype.animated = function (imgPath, frameWidth, frameHeight,
                                           frames, frameRate, loopOnce, row, col) {
         let spriteImage = document.createElement("img");
@@ -142,6 +143,7 @@
         return this;
     };
 
+    // Constructor for static images
     Sprite.prototype.static = function (imgPath, frameWidth, frameHeight, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
@@ -215,7 +217,7 @@
         this.time += dt;
     };
     
-    // Entity collision
+    // Entity rectangle collision
     Entity.prototype.collisionRect = function () {
         return new Rectangle(this.x - this.width/2,
                             this.y - this.height/2,
@@ -223,13 +225,21 @@
                             this.height);
     };
 
+    // Thin line for collision
+    Entity.prototype.collisionLine = function () {
+        return new Rectangle(this.x - this.width/2,
+                            this.y - this.height/2,
+                            this.width,
+                            1);
+    };
+
     // Player object
     function Player(x, y) {
         Entity.call(this, x, y, 40, 40);
 
         this.rangeOfMovement = 4;
-        this.capacity = 75;
-        this.energy = this.capacity;
+        this.maxLife = 75;
+        this.life = this.maxLife;
         this.move(0);
     }
 
@@ -241,19 +251,19 @@
         Entity.prototype.update.call(this, dt);
     };
 
-    // Increase energy
-    Player.prototype.addEnergy = function () {
-        this.energy += 25;
+    // Increase life amount
+    Player.prototype.addLife = function () {
+        this.life += 25;
         
-        if (this.energy >= this.capacity)
-            this.energy = this.capacity;
+        if (this.life >= this.maxLife)
+            this.life = this.maxLife;
     };
 
-    // Decrease energy
-    Player.prototype.loseEnergy = function () {
-        this.energy -= 25;
+    // Decrease life
+    Player.prototype.loseLife = function () {
+        this.life -= 25;
 
-        if (this.energy <= 0)
+        if (this.life <= 0)
             game.setGameOver();
     };
 
@@ -294,24 +304,24 @@
         function _update(dt) {
             let enemies = game.enemies();
             let player = game.player();
-            let playerHitbox = player.collisionRect();
+            let playerHitbox = player.collisionLine();
             let i;
 
             // Collision Check
             for (i = enemies.length - 1; i >= 0; i-- ) {
                 let enemy = enemies[i];
-                let enemyHitbox = enemy.collisionRect();
+                let enemyHitbox = enemy.collisionLine();
 
                 // Enemy hits player
                 if (enemy && player && enemyHitbox.intersects(playerHitbox) ) {
-                    // Resolve Collision (player gets energy)
-                    player.addEnergy();
+                    // Resolve Collision (player gets life)
+                    player.addLife();
                     _entitiesToRemove.push(enemy);
                 }
                 // Enemy goes off screen
                 else if (enemy && (enemyHitbox.top() > renderer.INITIAL_HEIGHT())) {
                     _entitiesToRemove.push(enemy);
-                    player.loseEnergy();
+                    player.loseLife();
                 }
             }
         }
@@ -341,7 +351,7 @@
     // Renderer
     renderer = (function () {
         let _playerWalkingUp = new Sprite().animated("build/sprites/animals.png", 26, 36, 3, 6, false, 3, 3);
-        let _playerIdle = new Sprite().static("build/sprites/animals.png", 26, 36, 3, 4);
+        //let _playerIdle = new Sprite().static("build/sprites/animals.png", 26, 36, 3, 4);
         let _playerExplode = new Sprite().animated("build/sprites/explosion.png", 223, 174, 22, 22, true, 0, 0);
         let _enemySprite = new Sprite().static("build/sprites/animals.png", 26, 36, 4, 7);
         let _bgImg = new Sprite().static("build/sprites/grassland.png", 128, 128, 4, 6);
@@ -514,6 +524,7 @@
         let _lastFrameTime;
         
         let _accelerating = false;
+        let _inputBuffered = true;
 
         let _entities, _enemies, _player;
         let _defaultEnemySpeed = 0;
@@ -544,11 +555,11 @@
 
                 // Tutorial waves are over, begin turning invisible
                 if (waveCounter == invisTurningWave-1) {
-                    console.log("Invisibility gene active on next wave!");
+                    //console.log("Invisibility gene active on next wave!");
                 }
                 else if (waveCounter == invisTurningWave) {
                     invisTurningPoint = renderer.INITIAL_HEIGHT() / 2;
-                    console.log("Activating invisibilty gene...");
+                    //console.log("Activating invisibilty gene...");
                 }
 
                 // Every wave, enemies turn invisible a littler sooner
@@ -586,19 +597,30 @@
             }
         }
 
+        // Toggle buffer flag
+        function _toggleInputBuffer() {
+            if (_inputBuffered)
+                _inputBuffered = false;
+            else 
+                _inputBuffered = true;
+
+            console.log("input buffered: " + _inputBuffered);
+        }
+
+
         // Speed up wave until past player; player cannot move during this time
         function _toggleAcceleration() {
             let i;
             if (_accelerating) {
                 _enemySpeed = _defaultEnemySpeed;
-                console.log("STOP...");
+                //console.log("STOP...");
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
                 }
                 _accelerating = false;
             }
             else {
-                console.log("hammertime");
+                //console.log("hammertime");
                 _enemySpeed = 6;
                 for (i = 0; i < _enemies.length; i++) {
                     _enemies[i].speed = _enemySpeed;
@@ -619,6 +641,7 @@
         // Start game
         function _start() {
             console.log("game start");
+            console.log("input buffered: " + _inputBuffered);
             _entities = [];
             _enemies = [];
             _gameOver = false;
@@ -726,15 +749,22 @@
 
                 // Is it hammertime?
                 if (entity instanceof Enemy &&
-                    _accelerating &&
+                    _accelerating && 
+                    !_inputBuffered &&
                     entity.y >= stoppingThreshold &&
                     entity.y < stoppingThreshold + entity.speed) {
                         _toggleAcceleration();
+                        _toggleInputBuffer();
                 }
 
                 // Delete offscreen or absorbed enemies
-                if (collisions.entitiesToRemove().includes(entity))
+                // should be 1 wave at any point it's not empty
+                if (collisions.entitiesToRemove().includes(entity)) {
                     entitiesToRemove.push(entity);
+
+                    if (_inputBuffered)
+                        _toggleInputBuffer();
+                }
             }
 
             _removeEntities(entitiesToRemove);
@@ -756,7 +786,9 @@
             setGameOver: _setGameOver,
             addScore: _addScore,
             toggleAcceleration: _toggleAcceleration,
+            toggleInputBuffer: _toggleInputBuffer,
             accelerating: function() { return _accelerating; },
+            inputBuffered: function() { return _inputBuffered; },
             score: function() { return _score; },
             highScores: function () { return _highScores; },
             gameOver: function() { return _gameOver; },
@@ -784,13 +816,15 @@
         let key = e.which || e.keyCode;
 
         // Move player to spot according to key pressed
-        if(keybinds[key] !== undefined && !game.accelerating()) {
+        if(keybinds[key] !== undefined && game.player() && !game.gameOver()) {
             e.preventDefault();
-            if (game.player()) {
-                game.player().move(keybinds[key]);
-            }
+            
+            game.player().move(keybinds[key]);
 
-            game.toggleAcceleration();
+            if (!game.accelerating())
+                game.toggleAcceleration();
+            else if (!game.inputBuffered())
+                game.toggleInputBuffer();
         }
     }
 
@@ -853,7 +887,7 @@
     
         e.preventDefault();
 
-        if (!game.accelerating()) {
+        if (!game.gameOver()) {
             for (let i = touches.length - 1; i >= 0; i--) {
                 touchLocation = getRelativeTouchCoords(touches[i]);
         
@@ -871,9 +905,15 @@
                 }
                 
                 game.player().move(spot);
-                game.toggleAcceleration();
+
+                if (!game.accelerating())
+                    game.toggleAcceleration();
+                else if (!game.inputBuffered());
+                    game.toggleInputBuffer();
             }
         }
+    
+    
     }
 
     renderer.canvas().addEventListener("touchstart", touchStart);
