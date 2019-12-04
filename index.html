@@ -9,16 +9,51 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
 <style type="text/css">
-body { margin: 0; padding: 0; background: #000;}
-canvas { display: block; margin: 0 auto; background: #fff; }
+* {
+    box-sizing: border-box;
+}
+
+body { 
+    margin: 0; 
+    padding: 0; 
+    background: #000;
+}
+
+.container {
+    display: block; 
+    width: 0px;
+    margin: 0 auto;
+}
+
+.widebar {
+    position: relative;
+    width:100%;
+    background: black;
+    font-size: 18px;
+    color: white;
+    line-height: 1em;
+    text-align: left;
+    padding-left: 5px;
+}
+
+canvas {
+    height: 100%;
+    width: 100%;
+    margin: 0 auto; 
+    background: none;
+}
+
+
 </style>
 
 </head>
 
 <body>
-
-<canvas id = "gameWindow"> </canvas>
-<script src="build/game.min.js"></script>
+    <div class="container">
+        <div class="widebar" id="score">Score</div>
+        <canvas id = "gameWindow"> </canvas>
+        <script src="build/game.min.js"></script>
+    </div>
 
 </body>
 </html>

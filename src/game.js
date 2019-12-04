@@ -6,47 +6,73 @@
     // Helper functions/objects
     ///////////////////////////////////////
 
-    /* a timer that can pause and resume
-    function IntervalTimer(callback, interval) {
-        let timerId, startTime, remaining = 0;
-        let state = 0; //  0 = idle, 1 = running, 2 = paused, 3= resumed
+    // Cloneable Pool
+    function CloneablePool(cloneable) {
+        this.template = cloneable;
 
-        // pause timer
-        this.pause = function () {
-            if (state != 1) return;
+        this.pool = [];
+    }
 
-            remaining = interval - (new Date() - startTime);
-            window.clearInterval(timerId);
-            state = 2;
-        };
+    CloneablePool.prototype.take = function () {
+        let obj;
+        let i;
 
-        // resume timer
-        this.resume = function () {
-            if (state != 2) return;
+        // If there is an available object, return it.
+        for(i = 0; i < this.pool.length; i++) {
+            if(this.pool[i].available) {
+                this.pool[i].available = false;
+                this.pool[i].object.init();
+                return this.pool[i].object;
+            }
+        }
 
-            state = 3;
-            window.setTimeout(this.timeoutCallback, remaining);
-        };
+        // Otherwise, create a new one and return it.
+        obj = this.template.clone();
+        obj.init();
 
-        // callback
-        this.timeoutCallback = function () {
-            if (state != 3) return;
+        this.pool.push({
+            available: false,
+            object: obj
+        });
 
-            callback();
+        return obj;
+    };
 
-            startTime = new Date();
-            timerId = window.setInterval(callback, interval);
-            state = 1;
-        };
+    CloneablePool.prototype.putBack = function (cloneable) {
+        let i;
 
-        startTime = new Date();
-        timerId = window.setInterval(callback, interval);
-        state = 1;
-    }*/
+        // Mark the object as available again.
+        for(i = 0; i < this.pool.length; i++) {
+            if (this.pool[i].object === cloneable) {
+                this.pool[i].available = true;
+                break;
+            }
+        }
+    };
 
     // Random Integer, 0 thru max - 1
     function randomInt(max) {
         return Math.floor(Math.random() * Math.floor(max));
+    }
+
+    // Removes an element by replacing it with the last element,
+    // and then shortens the array
+    function mutableRemoveIndex(array, index) {
+
+        if (index >= array.length) {
+            console.error('ERROR: mutableRemoveIndex: index is out of range');
+            return;
+        }
+    
+        if (array.length <= 0) {
+            console.error('ERROR: mutableRemoveIndex: empty array');
+            return;
+        }
+    
+        array[index] = array[array.length-1];
+        array[array.length-1] = undefined;
+    
+        array.length = array.length-1;
     }
 
     // Rectangle object
@@ -79,7 +105,7 @@
     };
 
     Rectangle.prototype.union = function (r2) {
-        var x, y, width, height;
+        let x, y, width, height;
     
         if( r2 === undefined ) {
             return;
@@ -105,32 +131,31 @@
     function Sprite() {}
 
     // Constructor for animated sprites
-    Sprite.prototype.animated = function (imgPath, frameWidth, frameHeight,
+    Sprite.prototype.animated = function (imgPath, width, height, frameWidth, frameHeight,
                                           frames, frameRate, loopOnce, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
 
-        spriteImage.addEventListener("error", function() {console.log("Image failed!");}, false);
         spriteImage.addEventListener("load",  function () {
             let spriteCanvas = document.createElement("canvas");
             let spriteContext = spriteCanvas.getContext('2d');
             
-            spriteCanvas.width = frameWidth*frames;
-            spriteCanvas.height = frameHeight;
+            spriteCanvas.width = width*frames;
+            spriteCanvas.height = height;
 
             spriteContext.drawImage(spriteImage,
                                     col*frameWidth, row*frameHeight,
                                     frameWidth*frames, frameHeight,
                                     0, 0,
-                                    frameWidth*frames, frameHeight);
+                                    width*frames, height);
 
             image.src = spriteCanvas.toDataURL('image/png');
         }, false);
 
         spriteImage.src = imgPath;
 
-        this.frameWidth = frameWidth;
-        this.frameHeight = frameHeight;
+        this.width = width;
+        this.height = height;
         this.row = row;
         this.col = col;
         this.frames = frames;
@@ -144,31 +169,72 @@
     };
 
     // Constructor for static images
-    Sprite.prototype.static = function (imgPath, frameWidth, frameHeight, row, col) {
+    Sprite.prototype.static = function (imgPath, width, height, frameWidth, frameHeight, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
 
-        spriteImage.addEventListener("error", function() {console.log("Image failed!");}, false);
         spriteImage.addEventListener("load",  function () {
             let spriteCanvas = document.createElement("canvas");
             let spriteContext = spriteCanvas.getContext('2d');
             
-            spriteCanvas.width = frameWidth;
-            spriteCanvas.height = frameHeight;
+            spriteCanvas.width = width;
+            spriteCanvas.height = height;
 
             spriteContext.drawImage(spriteImage,
                                     col*frameWidth, row*frameHeight,
                                     frameWidth, frameHeight,
                                     0, 0,
-                                    frameWidth, frameHeight);
+                                    width, height);
 
             image.src = spriteCanvas.toDataURL('image/png');
         }, false);
 
         spriteImage.src = imgPath;
 
-        this.frameWidth = frameWidth;
-        this.frameHeight = frameHeight;
+        this.width = width;
+        this.height = height;
+        this.row = row;
+        this.col = col;
+        this.frameRate = 0;
+        this.frames = 0;
+        this.currentFrame = 0;
+        this.image = image;
+
+        return this;
+    };
+
+    // Constructor for a static, tiled image
+    Sprite.prototype.tiled = function (imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles) {
+        let spriteImage = document.createElement("img");
+        let image = document.createElement("img");
+
+        spriteImage.addEventListener("load",  function () {
+            let i, j;
+            //let xTiles = width / frameWidth;
+            //let yTiles = height / frameHeight;
+            let spriteCanvas = document.createElement("canvas");
+            let spriteContext = spriteCanvas.getContext('2d');
+            
+            spriteCanvas.width = width;
+            spriteCanvas.height = height;
+
+            for (i = 0; i < xTiles; i++) {
+                for (j = 0; j < yTiles; j++) {
+                    spriteContext.drawImage(spriteImage,
+                                            col*frameWidth, row*frameHeight,
+                                            frameWidth, frameHeight,
+                                            i*width/xTiles, j*height/yTiles,
+                                            width/xTiles, height/yTiles);
+                }
+            }
+
+            image.src = spriteCanvas.toDataURL('image/png');
+        }, false);
+
+        spriteImage.src = imgPath;
+
+        this.width = width;
+        this.height = height;
         this.row = row;
         this.col = col;
         this.frameRate = 0;
@@ -186,12 +252,11 @@
             if (this.timer > 1/this.frameRate) {
                 this.timer = 0;
 
-                if (this.currentFrame <= this.frames);
+                if (!this.loopOnce)
+                    this.currentFrame = (this.currentFrame+1) % this.frames;
+                    
+                else if (this.currentFrame < this.frames-1)
                     this.currentFrame++;
-
-                if (this.currentFrame >= this.frames && !this.loopOnce)
-                    this.currentFrame = 0;
-                //this.currentFrame = (this.currentFrame+1) % this.frames;
             }
         }
     };
@@ -202,15 +267,35 @@
     ///////////////////////////////////////
     
     // Entity superclass
-    function Entity(x, y, width, height) {
+    function Entity(x, y, width, height, sprite) {
         this.x = x;
         this.y = y;
 
         this.time = 0;
+        this.draw = true;
 
         this.width = width;
         this.height = height;
+
+        this.sprite = sprite;
+
+        this.hitbox = new Rectangle(this.x - this.width/2,
+                                            this.y - this.height/2,
+                                            this.width,
+                                            this.height);
     }
+
+    Entity.prototype.init = function () {
+        this.x = 0;
+        this.y = 0;
+        this.time = 0;
+        this.draw = true;
+        this.sprite = null;
+    };
+
+    Entity.prototype.clone = function () {
+        return new Entity(this.x, this.y, this.width, this,height, this.sprite);
+    };
 
     // Update time step
     Entity.prototype.update = function (dt) {
@@ -219,23 +304,28 @@
     
     // Entity rectangle collision
     Entity.prototype.collisionRect = function () {
-        return new Rectangle(this.x - this.width/2,
-                            this.y - this.height/2,
-                            this.width,
-                            this.height);
+        this.hitbox.x = this.x - this.width/2;
+        this.hitbox.y = this.y - this.height/2;
+        this.hitbox.width = this.width;
+        this.hitbox.height = this.height;
+
+        return this.hitbox;
     };
 
-    // Thin line for collision
+    // 1px line for collision
     Entity.prototype.collisionLine = function () {
-        return new Rectangle(this.x - this.width/2,
-                            this.y - this.height/2,
-                            this.width,
-                            1);
+        this.hitbox.x = this.x - this.width/2;
+        this.hitbox.y = this.y - this.height/2;
+        this.hitbox.width = this.width;
+        this.hitbox.height = 1;
+
+        return this.hitbox;
     };
+
 
     // Player object
-    function Player(x, y) {
-        Entity.call(this, x, y, 40, 40);
+    function Player(x, y, sprite) {
+        Entity.call(this, x, y, 40, 40, sprite);
 
         this.rangeOfMovement = 4;
         this.maxLife = 75;
@@ -246,9 +336,11 @@
     // Player extends Entity
     Player.prototype = Object.create(Entity.prototype);
 
-    // Update time step
+    // Update player
     Player.prototype.update = function (dt) {
         Entity.prototype.update.call(this, dt);
+
+        game.addScore(1);
     };
 
     // Increase life amount
@@ -262,7 +354,7 @@
     // Decrease life
     Player.prototype.loseLife = function () {
         this.life -= 25;
-
+        
         if (this.life <= 0)
             game.setGameOver();
     };
@@ -270,16 +362,29 @@
     // Move player to a spot 1-4
     Player.prototype.move = function (spot) {
         // 4 spots of movement on screen
-        this.x = (renderer.INITIAL_WIDTH() / this.rangeOfMovement) * spot + 20;
+        this.x = (renderer.INITIAL_WIDTH / this.rangeOfMovement) * spot + 20;
     };
 
     // Enemy object
-    function Enemy(x, y, speed, invisPointY) {
-        Entity.call(this, x, y, 40, 10);
+    function Enemy(x, y, speed, invisPointY, sprite) {
+        Entity.call(this, x, y, 40, 10, sprite);
         
         this.invisPointY = invisPointY;
         this.speed = speed;
+        this.disappeared = false;
     }
+
+    Enemy.prototype.init = function () {
+        Entity.prototype.init.call(this);
+
+        this.invisPointY = 0;
+        this.speed = 0;
+        this.disappeared = false;
+    };
+
+    Entity.prototype.clone = function () {
+        return new Enemy(this.x, this.y, this.speed, this.invisPointY, this.sprite);
+    };
 
     // Enemy extends Entity
     Enemy.prototype = Object.create(Entity.prototype);
@@ -294,83 +399,17 @@
     ///////////////////////////////////////
     // Controllers
     ///////////////////////////////////////
-    let renderer, game, collisions;
-    
-
-    // Collisions handler
-    collisions = (function () {
-        let _entitiesToRemove = [];
-
-        function _update(dt) {
-            let enemies = game.enemies();
-            let player = game.player();
-            let playerHitbox = player.collisionLine();
-            let i;
-
-            // Collision Check
-            for (i = enemies.length - 1; i >= 0; i-- ) {
-                let enemy = enemies[i];
-                let enemyHitbox = enemy.collisionLine();
-
-                // Enemy hits player
-                if (enemy && player && enemyHitbox.intersects(playerHitbox) ) {
-                    // Resolve Collision (player gets life)
-                    player.addLife();
-                    _entitiesToRemove.push(enemy);
-                }
-                // Enemy goes off screen
-                else if (enemy && (enemyHitbox.top() > renderer.INITIAL_HEIGHT())) {
-                    _entitiesToRemove.push(enemy);
-                    player.loseLife();
-                }
-            }
-        }
-
-        function _clearEntitiesToRemove() {
-            if (!_entitiesToRemove) {
-                return;
-            }
-
-            // Quick helper function to check if
-            // a thing is not in entities array
-            function isNotInEntities(item) {
-                return !_entitiesToRemove.includes(item);
-            }
-
-            // Clear entities
-            _entitiesToRemove = _entitiesToRemove.filter(isNotInEntities);
-        }
-
-        return {
-            update: _update,
-            clearEntitiesToRemove: _clearEntitiesToRemove,
-            entitiesToRemove: function () { return _entitiesToRemove; }
-        };
-    })();
+    let renderer, game;
 
     // Renderer
     renderer = (function () {
-        let _playerWalkingUp = new Sprite().animated("build/sprites/animals.png", 26, 36, 3, 6, false, 3, 3);
-        //let _playerIdle = new Sprite().static("build/sprites/animals.png", 26, 36, 3, 4);
-        let _playerExplode = new Sprite().animated("build/sprites/explosion.png", 223, 174, 22, 22, true, 0, 0);
-        let _enemySprite = new Sprite().static("build/sprites/animals.png", 26, 36, 4, 7);
-        let _bgImg = new Sprite().static("build/sprites/grassland.png", 128, 128, 4, 6);
-        let _animatedSprites = [_playerWalkingUp];
-        
-
         let _canvas = document.getElementById("gameWindow");
         let _context = _canvas.getContext("2d");
 
         const _INITIAL_HEIGHT = 720;
         const _INITIAL_WIDTH = 480;
-        const _RATIO = _INITIAL_WIDTH / _INITIAL_HEIGHT;
         let _currentHeight = _INITIAL_HEIGHT;
         let _currentWidth = _INITIAL_WIDTH;
-
-        // Figure out if user device is android or ios
-        let ua = navigator.userAgent.toLowerCase();
-        let android = ua.indexOf('android') > -1 ? true : false;
-        let ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false; 
         
         // Adjust initial canvas size
         _canvas.width = _INITIAL_WIDTH;
@@ -378,14 +417,22 @@
 
         // Resize it according to device
         _resize();
-        window.addEventListener('resize', _resize, false);
+       // window.addEventListener('resize', _resize, false);
 
         function _resize() {
+            const ratio = _INITIAL_WIDTH / _INITIAL_HEIGHT;
             const addressBarHeight = 50;
+
+            // Figure out if user device is android or ios
+            const ua = navigator.userAgent.toLowerCase();
+            const android = ua.indexOf('android') > -1 ? true : false;
+            const ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false; 
+
+            let container = document.getElementsByClassName("container")[0];
 
             // Get correct  dimensions
             _currentHeight = window.innerHeight;
-            _currentWidth = _currentHeight * _RATIO;
+            _currentWidth = _currentHeight * ratio;
 
             // Add enough size to scroll down 
             // past the address bar on ios or android
@@ -396,6 +443,8 @@
             // Adjust canvas accordingly
             _canvas.style.width = _currentWidth + 'px';
             _canvas.style.height = _currentHeight + 'px';
+            container.style.width = _currentWidth + 'px';
+            container.style.height = _currentHeight + 'px';
 
             // Automagically scroll down to get rid
             // of address bar
@@ -405,68 +454,42 @@
         }
 
         // Draw a sprite to the context
-        function _drawSprite(sprite, x, y, width, height) {
+        function _drawSprite(sprite, x, y) {
             if (sprite.frameRate === 0 || (sprite.loopOnce && sprite.currentFrame >= sprite.frames)) {
                 _context.drawImage(sprite.image,
-                                    sprite.frameWidth*sprite.frames, 0,
-                                    sprite.frameWidth, sprite.frameHeight,
+                                    sprite.width*sprite.frames, 0,
+                                    sprite.width, sprite.height,
                                     x, y,
-                                    width, height);
+                                    sprite.width, sprite.height);
             }
             else {
                 _context.drawImage(sprite.image,
-                                    sprite.frameWidth*sprite.currentFrame, 0,
-                                    sprite.frameWidth, sprite.frameHeight,
+                                    sprite.width*sprite.currentFrame, 0,
+                                    sprite.width, sprite.height,
                                     x, y,
-                                    width, height);
+                                    sprite.width, sprite.height);
             }
-        }
-
-        // Render enemy at its coords
-        function _drawEnemy(enemy, sprite) {
-            // Still visible
-            if (enemy.y < enemy.invisPointY) {
-                _drawSprite(sprite, enemy.x, enemy.y-enemy.height/2, 
-                                    enemy.width*1.5, enemy.height*6);
-            }
-            // Invisible
-            else {
-                _context.fillStyle = "white";
-                _context.fillRect(0, enemy.y+enemy.height, _INITIAL_WIDTH, 10);
-            }
-        }
-        
-        // Render player at its coords
-        function _drawPlayer(player, sprite) {
-            _drawSprite(sprite, player.x, player.y-player.height/2,
-                        player.width*1.5, player.height*1.5);
         }
 
         // Draw moving background
         let _drawBG = (function () {
-            let bgTileSize = 64;
             let y = 0;
             let movingSpeed = 6;
+            let bgImg = new Sprite().tiled("build/sprites/grassland.png",
+                                        _INITIAL_WIDTH, _INITIAL_HEIGHT,
+                                        128, 128,
+                                        4, 6,
+                                        6, 10);
 
             return function () {
-                let i, j;
-                let horizontalTiles = _INITIAL_WIDTH/bgTileSize;
-                let verticalTiles = _INITIAL_HEIGHT/bgTileSize;
-                
-
-                for (i = 0; i <= horizontalTiles; i++) {
-                    for(j = -1; j <= verticalTiles; j++) {
-                        _drawSprite(_bgImg, i*bgTileSize, j*bgTileSize+y,
-                                    bgTileSize, bgTileSize);
-                    }
-                }
+                _drawSprite(bgImg, 0, y-_INITIAL_HEIGHT);
+                _drawSprite(bgImg, 0, y);
 
                 if (game.accelerating() && !game.gameOver())
                     y += movingSpeed;
 
-                if (y >= bgTileSize) {
+                if (y >= _INITIAL_HEIGHT)
                     y = 0;
-                }
             };
         })();
 
@@ -479,40 +502,34 @@
             // Fill background
             _drawBG();
 
-            // Update Sprites
-            if (game.accelerating()) {
-                for(i = _animatedSprites.length-1; i >= 0; i--) {
-                    _animatedSprites[i].update(dt);
-                }
-            }
-
-            // Draw every game entity
+            // Draw every game entity and update their sprites
             for(i = 0; i < entities.length; i++) {
                 entity = entities[i];
 
-                if (entity instanceof Enemy) {
-                    _drawEnemy(entity, _enemySprite);
-                }
-                else if (entity instanceof Player) {
-                    if (game.gameOver()) {
-                        _playerExplode.update(dt);
-                        _drawSprite(_playerExplode, entity.x, entity.y-entity.height/2,
-                            entity.width*1.5, entity.height*1.5);
-                    }
+                if (game.accelerating())
+                    entity.sprite.update(dt);
+
+                // Render enemy at its coords
+                if (entity.draw && entity instanceof Enemy) {
+                    if (entity.disappeared)
+                        _drawSprite(entity.sprite, 0, entity.y-entity.height/2);
                     else
-                        _drawPlayer(entity, _playerWalkingUp);
+                        _drawSprite(entity.sprite, entity.x, entity.y-entity.height/2);
                 }
+                
+                // Render player at its coords
+                else if (entity.draw && entity instanceof Player)
+                    _drawSprite(entity.sprite, entity.x, entity.y-entity.height/2);
             }
 
         }
 
         return {
             render: _render,
-            INITIAL_WIDTH: function () { return _INITIAL_WIDTH; },
-            INITIAL_HEIGHT: function () { return _INITIAL_HEIGHT; },
-            currentWidth: function () { return _currentWidth; },
-            currentHeight: function () { return _currentHeight; },
-            canvas: function () { return _canvas; }
+            INITIAL_WIDTH: _INITIAL_WIDTH,
+            INITIAL_HEIGHT: _INITIAL_HEIGHT,
+            currentWidth: _currentWidth,
+            canvas: _canvas
         };
 
     })();
@@ -520,18 +537,24 @@
     // Game
     game = (function() {
         /* jshint validthis: true */
+        let _playerWalkingUp = new Sprite().animated("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, false, 3, 3);
+        let _enemySprite = new Sprite().static("build/sprites/animals.png", 60, 60, 26, 36, 4, 7);
+        let _playerExplode = new Sprite().animated("build/sprites/explosion.png", 60, 60, 223, 174, 21, 21, true, 0, 0);
+        let _pileOfLeaves = new Sprite().tiled("build/sprites/grassland.png", renderer.INITIAL_WIDTH, 60, 128, 128, 15, 4, 6, 1);
+        
+        let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
+        let _entities, _entitiesToRemove, _enemies, _player;
+        let _enemySpeed = 6;
 
         let _lastFrameTime;
         
         let _accelerating = false;
         let _inputBuffered = true;
 
-        let _entities, _enemies, _player;
-        let _defaultEnemySpeed = 0;
-        let _enemySpeed = _defaultEnemySpeed;
-
         let _started = false;
         let _gameOver;
+
+        let _updateFunc;
 
         let _score;
         let _highScores;
@@ -540,48 +563,48 @@
         let _spawnWave = (function () {
             let waveCounter = 0;
             // Initialize to something that enemies will never reach
-            let invisTurningPoint = renderer.INITIAL_HEIGHT() * 2;
+            let invisTurningPoint = renderer.INITIAL_HEIGHT * 2;
             let invisTurningWave = 5;
 
             return function () {
-                let goodSpot = (renderer.INITIAL_WIDTH() / _player.rangeOfMovement) * 
+                // Pick a spot to populate
+                let enemySpot = (renderer.INITIAL_WIDTH / _player.rangeOfMovement) * 
                                 randomInt(_player.rangeOfMovement) + 20;
-                //let enemySpot;
-                //let i;
+
+                // make an enemy
+                let enemy = _enemyPool.take();
+
+                enemy.x = enemySpot;
+                enemy.y = -10;
+                enemy.speed = _enemySpeed;
+                enemy.invisPointY = invisTurningPoint;
+                enemy.sprite = _enemySprite;
+                enemy.disappeared = false;
+
+                _addEntity(enemy);
 
                 // Increment spawned waves counter
                 waveCounter++;
-                console.log("wave " + waveCounter);
 
                 // Tutorial waves are over, begin turning invisible
                 if (waveCounter == invisTurningWave-1) {
-                    //console.log("Invisibility gene active on next wave!");
+                    //do some warning here
                 }
                 else if (waveCounter == invisTurningWave) {
-                    invisTurningPoint = renderer.INITIAL_HEIGHT() / 2;
-                    //console.log("Activating invisibilty gene...");
+                    invisTurningPoint = renderer.INITIAL_HEIGHT / 2;
                 }
 
                 // Every wave, enemies turn invisible a littler sooner
                 // caps at y = 80
                 if (invisTurningPoint >= 80)
                     invisTurningPoint -= 10;
-                
-                // make an enemy
-                _addEntity(new Enemy(goodSpot, -10, _enemySpeed, invisTurningPoint));
-
-                /*for (i = 0; i < 4; i++) {
-                    if (i !== goodSpot) {
-                        enemySpot = (renderer.INITIAL_WIDTH() / 4) * i + 20;
-                        _addEntity(new Enemy(enemySpot, -10, _enemySpeed, invisTurningPoint));
-                    }
-                }*/
             };
         })();
 
         // Add onto game score
         function _addScore(num) {
             _score += num;
+            console.log(_score);
         }
 
         // Insert a score into list of high scores
@@ -593,57 +616,35 @@
             _highScores = _highScores.slice(0, 10);
             // Insert into local storage
             if (typeof(Storage) !== "undefined") {
-                localStorage.invadersScores = JSON.stringify(_highScores);
+                localStorage.nBackScores = JSON.stringify(_highScores);
             }
         }
 
         // Toggle buffer flag
         function _toggleInputBuffer() {
-            if (_inputBuffered)
-                _inputBuffered = false;
-            else 
-                _inputBuffered = true;
-
-            console.log("input buffered: " + _inputBuffered);
+            _inputBuffered = !_inputBuffered;
         }
 
 
         // Speed up wave until past player; player cannot move during this time
         function _toggleAcceleration() {
-            let i;
-            if (_accelerating) {
-                _enemySpeed = _defaultEnemySpeed;
-                //console.log("STOP...");
-                for (i = 0; i < _enemies.length; i++) {
-                    _enemies[i].speed = _enemySpeed;
-                }
-                _accelerating = false;
-            }
-            else {
-                //console.log("hammertime");
-                _enemySpeed = 6;
-                for (i = 0; i < _enemies.length; i++) {
-                    _enemies[i].speed = _enemySpeed;
-                }
-                _accelerating = true;
-            }
+            _accelerating = !_accelerating;
         }
 
         // Game over
         function _setGameOver() {
             if (!_gameOver) {
-                console.log("game over");
                 _gameOver = true;
-                _insertScore(Math.round(game.score()));
+                _player.sprite = _playerExplode;
+                _insertScore(Math.round(_score));
             }
         }
 
         // Start game
         function _start() {
-            console.log("game start");
-            console.log("input buffered: " + _inputBuffered);
             _entities = [];
             _enemies = [];
+            _entitiesToRemove = [];
             _gameOver = false;
             _score = 0;
             _highScores = [];
@@ -660,14 +661,15 @@
             }
 
             // Spawn player & begin spawning enemies
-            this.addEntity(new Player(0, renderer.INITIAL_HEIGHT() - 60));
+            _addEntity(new Player(0, renderer.INITIAL_HEIGHT - 60, _playerWalkingUp));
             // Spawn initial wave
             _spawnWave();
 
             // Begin game loop
             if (!_started) {
-                requestAnimationFrame(this.update.bind(this));
                 _started = true;
+                _updateFunc = this.update.bind(this);
+                requestAnimationFrame(_updateFunc);
             }
         }
 
@@ -686,20 +688,35 @@
 
         // Remove entities from game
         function _removeEntities(entitiesToRemove) {
+            let i;
+
             // Don't do anything if no entities to remove
-            if (!entitiesToRemove) {
+            if (entitiesToRemove.length === 0) {
                 return;
             }
             
-            // Quick helper function to check if
-            // a thing is not in entities array
-            function isNotInEntities(item) {
-                return !entitiesToRemove.includes(item);
-            }
+            // Go through the arrays and remove those in the kill list
+            for (i = 0; i < entitiesToRemove.length; i++) {
+                let entityToRemove = entitiesToRemove[i];
+                let idxToRemove;
 
-            // Clear entities
-            _entities = _entities.filter(isNotInEntities);
-            _enemies = _enemies.filter(isNotInEntities);
+                // General entities array
+                idxToRemove = _entities.indexOf(entityToRemove);
+                
+                // Only remove if it's actually there
+                if (idxToRemove >= 0)
+                    mutableRemoveIndex(_entities, idxToRemove);
+
+                // Enemies
+                idxToRemove = _enemies.indexOf(entityToRemove);
+
+                // Only remove if it's actually there
+                if (idxToRemove >= 0) {
+                    mutableRemoveIndex(_enemies, idxToRemove);
+                    // Put the object back in its pool
+                    _enemyPool.putBack(entityToRemove);
+                }
+            }
     
             // Wipe player off the face of the planet if
             // we must
@@ -708,14 +725,20 @@
             }
         }
 
+        // Check for a collision between two entities
+        function _isColliding(entity1, entity2) {
+            let hbox1 = entity1.collisionLine();
+            let hbox2 = entity2.collisionLine();
+
+            return hbox1.intersects(hbox2);
+        }
 
         // Update game
         function _update(time) {
             let entity;
-            let entitiesToRemove = [];
-            let spawningWave = false;
             let stoppingThreshold = _player.y - _player.height;
-            let newWaveThreshold = renderer.INITIAL_HEIGHT() / 4;
+            let newWaveThreshold = renderer.INITIAL_HEIGHT / 4;
+            let alertZone;
             let i;
 
             // Smooth FPS
@@ -727,24 +750,62 @@
             if (_gameOver) {
                 _started = false;
                 renderer.render(dt);
-                requestAnimationFrame(this.update.bind(this));
+                requestAnimationFrame(_updateFunc);
                 return;
             }
-
-            // Check collisions
-            collisions.update(dt);
 
             // Update all entities
             for (i = 0; i < _entities.length; i++) {
                 entity = _entities[i];
-                entity.update(dt);
+                alertZone = entity.invisPointY-newWaveThreshold;
 
+                if (_accelerating)
+                    entity.update(dt);
+
+                // Entity offscreen? Delet
+                if (entity.y > renderer.INITIAL_HEIGHT) {
+                    _entitiesToRemove.push(entity);
+
+                    if (entity instanceof Enemy) {
+                        _player.loseLife();
+                        
+                        if (_inputBuffered)
+                            _toggleInputBuffer();
+                    }
+                }
+
+                // Check collisions with player
+                else if (entity instanceof Enemy && _isColliding(entity, _player)) {
+                    _player.addLife();
+                    _entitiesToRemove.push(entity);
+
+                    if (_inputBuffered)
+                        _toggleInputBuffer();
+                }
+
+                // About to be invisible? Flash!
+                else if (entity instanceof Enemy &&
+                    entity.y >= alertZone &&
+                    entity.y < entity.invisPointY) {
+                        
+                        entity.draw = !entity.draw;
+                }
+
+                // Invisible?
+                else if (entity instanceof Enemy &&
+                        entity.y >= entity.invisPointY &&
+                        entity.y < entity.invisPointY + entity.speed) {
+                            entity.sprite = _pileOfLeaves;
+
+                            entity.draw = true;
+                            entity.disappeared = true;
+                }
+
+                // Spawn a new wave?
                 if (entity instanceof Enemy &&
-                    !spawningWave &&
                     entity.y >= newWaveThreshold &&
                     entity.y < newWaveThreshold + entity.speed) {
                         _spawnWave();
-                        spawningWave = true;
                 }
 
                 // Is it hammertime?
@@ -756,41 +817,30 @@
                         _toggleAcceleration();
                         _toggleInputBuffer();
                 }
-
-                // Delete offscreen or absorbed enemies
-                // should be 1 wave at any point it's not empty
-                if (collisions.entitiesToRemove().includes(entity)) {
-                    entitiesToRemove.push(entity);
-
-                    if (_inputBuffered)
-                        _toggleInputBuffer();
-                }
             }
 
-            _removeEntities(entitiesToRemove);
-            collisions.clearEntitiesToRemove();
-            
-            spawningWave = false;
+            // Delete offscreen or absorbed enemies
+            _removeEntities(_entitiesToRemove);
+            _entitiesToRemove.length = 0;
 
             // Render frame
             renderer.render(dt);
 
             // Loop
-            requestAnimationFrame(this.update.bind(this));
+            requestAnimationFrame(_updateFunc);
         }
 
          return {
             start: _start,
             update: _update,
-            addEntity: _addEntity,
             setGameOver: _setGameOver,
             addScore: _addScore,
             toggleAcceleration: _toggleAcceleration,
             toggleInputBuffer: _toggleInputBuffer,
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
-            score: function() { return _score; },
-            highScores: function () { return _highScores; },
+            //score: function() { return _score; },
+            //highScores: function () { return _highScores; },
             gameOver: function() { return _gameOver; },
             entities: function () { return _entities; },
             enemies: function () { return _enemies; },
@@ -869,10 +919,11 @@
 
     // Return object with touch location 
     // x and y in game coords
-    function getRelativeTouchCoords(touch) {// Scale touch coords correctly
-        let scale = renderer.currentWidth() / renderer.INITIAL_WIDTH();
-        let x = touch.pageX - getOffsetLeft(renderer.canvas());
-        let y = touch.pageY - getOffsetTop(renderer.canvas());
+    function getRelativeTouchCoords(touch) {
+        // Scale touch coords correctly
+        let scale = renderer.currentWidth / renderer.INITIAL_WIDTH;
+        let x = touch.pageX - getOffsetLeft(renderer.canvas);
+        let y = touch.pageY - getOffsetTop(renderer.canvas);
     
         return {
             x: x/scale,
@@ -891,13 +942,13 @@
             for (let i = touches.length - 1; i >= 0; i--) {
                 touchLocation = getRelativeTouchCoords(touches[i]);
         
-                if (touchLocation.x < renderer.INITIAL_WIDTH() * (1/4)) {
+                if (touchLocation.x < renderer.INITIAL_WIDTH * (1/4)) {
                     spot = 0;
                 }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (2/4)) {
+                else if (touchLocation.x < renderer.INITIAL_WIDTH * (2/4)) {
                     spot = 1;
                 }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH() * (3/4)) {
+                else if (touchLocation.x < renderer.INITIAL_WIDTH * (3/4)) {
                     spot = 2;
                 }
                 else {
@@ -908,7 +959,7 @@
 
                 if (!game.accelerating())
                     game.toggleAcceleration();
-                else if (!game.inputBuffered());
+                else if (!game.inputBuffered())
                     game.toggleInputBuffer();
             }
         }
@@ -916,7 +967,7 @@
     
     }
 
-    renderer.canvas().addEventListener("touchstart", touchStart);
+    renderer.canvas.addEventListener("touchstart", touchStart);
 
     ///////////////////////////////////////
     // Main Logic
