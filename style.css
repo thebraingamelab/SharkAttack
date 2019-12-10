@@ -1,0 +1,39 @@
+
+* {
+    box-sizing: border-box;
+}
+
+body { 
+    margin: 0; 
+    padding: 0; 
+    background: #000;
+}
+
+.container {
+    display: block; 
+    width: 0px;
+    height: 0px;
+    margin: 0 auto;
+}
+
+canvas {
+    position: absolute;
+    background: rgb(109, 175, 53);
+}
+
+#start_button {
+    background-color: pink;
+    color: black;
+    font-family: 'Bubblegum Sans', cursive;
+    font-size: 20px;
+    margin: auto;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: 45%;
+    z-index: 1;
+    border-width: 1px;
+    border-color: rgb(247, 245, 199)
+}
