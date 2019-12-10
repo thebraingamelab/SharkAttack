@@ -735,7 +735,7 @@
             let tutorialTap = _tempPool.take();
 
             tutorialTap.x = _spawnWave();
-            tutorialTap.y = renderer.INITIAL_HEIGHT / 2;
+            tutorialTap.y = renderer.INITIAL_HEIGHT * (3/4);
             tutorialTap.width = _tapIcon.width;
             tutorialTap.height = _tapIcon.height;
             tutorialTap.sprite = _tapIcon;
@@ -910,7 +910,7 @@
                             let tutorialTap = _tempPool.take();
 
                             tutorialTap.x = _tutorialSpots[_tutorialCounter];
-                            tutorialTap.y = renderer.INITIAL_HEIGHT / 2;
+                            tutorialTap.y = renderer.INITIAL_HEIGHT * (3/4);
                             tutorialTap.width = _tapIcon.width;
                             tutorialTap.height = _tapIcon.height;
                             tutorialTap.sprite = _tapIcon;
