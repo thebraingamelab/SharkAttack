@@ -153,19 +153,26 @@
 
 
     // Sprite Object
-    function Sprite() {}
+    function Sprite(image, width, height, frames, frameRate) {
+        this.width = width;
+        this.height = height;
+        this.frames = frames;
+        this.frameRate = frameRate;
+        this.timer = 0;
+        this.currentFrame = 0;
+        this.image = image;
+        this.animationEndEvent = null;
+    }
 
-    // Constructor for animated sprites
-    Sprite.prototype.animated = function (imgPath, width, height, frameWidth, frameHeight,
-                                          frames, frameRate, loopOnce, row, col) {
+    // Constructor for event-based sprites
+    Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col) {
         let spriteImage = document.createElement("img");
         let image = document.createElement("img");
 
-        //spriteImage.addEventListener("onerror", function () {console.log("badbad");});
         spriteImage.addEventListener("load",  function myLoadHandler() {
             let spriteCanvas = document.createElement("canvas");
             let spriteContext = spriteCanvas.getContext('2d');
-            
+
             spriteCanvas.width = width*frames;
             spriteCanvas.height = height;
 
@@ -184,51 +191,12 @@
 
         this.width = width;
         this.height = height;
-        this.row = row;
-        this.col = col;
         this.frames = frames;
         this.frameRate = frameRate;
         this.timer = 0;
         this.currentFrame = 0;
-        this.loopOnce = loopOnce;
         this.image = image;
-
-        return this;
-    };
-
-    // Constructor for static images
-    Sprite.prototype.static = function (imgPath, width, height, frameWidth, frameHeight, row, col) {
-        let spriteImage = document.createElement("img");
-        let image = document.createElement("img");
-
-        spriteImage.addEventListener("load",  function myLoadHandler() {
-            let spriteCanvas = document.createElement("canvas");
-            let spriteContext = spriteCanvas.getContext('2d');
-            
-            spriteCanvas.width = width;
-            spriteCanvas.height = height;
-
-            spriteContext.drawImage(spriteImage,
-                                    col*frameWidth, row*frameHeight,
-                                    frameWidth, frameHeight,
-                                    0, 0,
-                                    width, height);
-
-            image.src = spriteCanvas.toDataURL('image/png');
-
-            spriteImage.removeEventListener("load", myLoadHandler);
-        }, false);
-
-        spriteImage.src = imgPath;
-
-        this.width = width;
-        this.height = height;
-        this.row = row;
-        this.col = col;
-        this.frameRate = 0;
-        this.frames = 0;
-        this.currentFrame = 0;
-        this.image = image;
+        this.animationEndEvent = null;
 
         return this;
     };
@@ -265,10 +233,9 @@
 
         this.width = width;
         this.height = height;
-        this.row = row;
-        this.col = col;
         this.frameRate = 0;
-        this.frames = 0;
+        this.frames = 1;
+        this.timer = 0;
         this.currentFrame = 0;
         this.image = image;
 
@@ -280,19 +247,47 @@
     };
 
     Sprite.prototype.update = function (dt) {
-        if (this.frameRate !== 0) {
+        // While the sprite is animated...
+        if (this.frameRate > 0) {
             this.timer += dt;
             
+            // Increment the frame
             if (this.timer > 1/this.frameRate) {
                 this.timer = 0;
+                this.currentFrame++;
 
-                if (!this.loopOnce)
-                    this.currentFrame = (this.currentFrame+1) % this.frames;
-                    
-                else if (this.currentFrame < this.frames-1)
-                    this.currentFrame++;
+                // Run the callback after the animation finishes
+                if (this.currentFrame > this.frames-1 && this.animationEndEvent !== null) {
+                    this.animationEndEvent();
+                }
             }
         }
+    };
+
+    Sprite.prototype.init = function () {
+        this.width = 0;
+        this.height = 0;
+        this.frameRate = 0;
+        this.frames = 0;
+        this.currentFrame = 0;
+        this.timer = 0;
+        this.image = null;
+        this.animationEndEvent = null;
+    };
+
+    Sprite.prototype.clone = function () {
+        return new Sprite(this.image, this.width, this.height, this.frames, this.frameRate);
+    };
+
+    Sprite.prototype.copyAttributes = function (otherSprite) {
+        this.width = otherSprite.width;
+        this.height = otherSprite.height;
+        this.frameRate = otherSprite.frameRate;
+        this.frames = otherSprite.frames;
+        this.image = otherSprite.image;
+        this.animationEndEvent = otherSprite.animationEndEvent;
+
+        return this;
     };
 
 
@@ -361,7 +356,7 @@
         Entity.call(this, x, y, width, height, sprite);
     }
 
-    // Passive Entity extends Entity
+    // Temporary Entity extends Entity
     TempEntity.prototype = Object.create(Entity.prototype);
 
     TempEntity.prototype.init = function () {
@@ -379,7 +374,6 @@
         this.rangeOfMovement = 4;
         this.maxLife = 75;
         this.life = this.maxLife;
-        this.move(0);
     }
 
     // Player extends Entity
@@ -408,10 +402,10 @@
             game.setGameOver();
     };
 
-    // Move player to a spot 1-4
-    Player.prototype.move = function (spot) {
-        // 4 spots of movement on screen
-        this.x = (renderer.INITIAL_WIDTH / this.rangeOfMovement) * spot + 20;
+    // Move player to a lane 1-4
+    Player.prototype.move = function (laneNum) {
+        // 4 lanes of movement on screen
+        this.x = game.lanes.getCenterX(laneNum);
     };
 
     // Enemy object
@@ -448,28 +442,54 @@
     ///////////////////////////////////////
     // Controllers
     ///////////////////////////////////////
-    let renderer, game;
+    let renderer, game, resources;
+
+    const GAME_FIELD_HEIGHT = 720;
+    const GAME_FIELD_WIDTH = 480;
+
+    // Resources
+    resources = (function () {
+        let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
+
+        let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
+        _playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
+        let _enemySprite = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 36, 1, 0, 4, 7);
+        let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 60, 60, 223, 174, 21, 21, 0, 0);
+        let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
+        let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
+        _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
+        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 4, 6, 4, 10);
+
+        return {
+            spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
+            spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
+            spr_explosion: function() { return _spritePool.take().copyAttributes(_playerExplode); },
+            spr_leafPile: function() { return _spritePool.take().copyAttributes(_pileOfLeaves); },
+            spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
+            spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
+
+            putSpriteBack: function(spr) { _spritePool.putBack(spr); }
+        };
+    })();
 
     // Renderer
     renderer = (function () {
         let _canvas = document.querySelector("#gameWindow");
         let _context = _canvas.getContext("2d");
 
-        const _INITIAL_HEIGHT = 720;
-        const _INITIAL_WIDTH = 480;
-        let _currentHeight = _INITIAL_HEIGHT;
-        let _currentWidth = _INITIAL_WIDTH;
+        let _currentHeight = GAME_FIELD_HEIGHT;
+        let _currentWidth = GAME_FIELD_WIDTH;
         
         // Adjust initial canvas size
-        _canvas.width = _INITIAL_WIDTH;
-        _canvas.height = _INITIAL_HEIGHT;
+        _canvas.width = GAME_FIELD_WIDTH;
+        _canvas.height = GAME_FIELD_HEIGHT;
 
         // Resize it according to device
         _resize();
         window.addEventListener('resize', debounce(_resize, 250, false), false);
 
         function _resize() {
-            const ratio = _INITIAL_WIDTH / _INITIAL_HEIGHT;
+            const ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
             const addressBarHeight = 50;
 
             // Figure out if user device is android or ios
@@ -504,13 +524,17 @@
 
         // Draw a sprite to the context
         function _drawSprite(sprite, x, y) {
-            if (sprite.frameRate === 0 || (sprite.loopOnce && sprite.currentFrame >= sprite.frames)) {
+            // If the image is static or the animation reached its end,
+            // only draw the last frame (sometimes the only frame)
+            if (sprite.frameRate <= 0 || sprite.currentFrame >= sprite.frames) {
                 _context.drawImage(sprite.image,
-                                    sprite.width*sprite.frames, 0,
+                                    sprite.width*(sprite.frames-1), 0,
                                     sprite.width, sprite.height,
                                     x, y,
                                     sprite.width, sprite.height);
             }
+
+            // Otherwise, draw the correct frame of the animated sprite
             else {
                 _context.drawImage(sprite.image,
                                     sprite.width*sprite.currentFrame, 0,
@@ -524,20 +548,16 @@
         let _drawBG = (function () {
             let y = 0;
             let movingSpeed = 6;
-            let bgImg = new Sprite().tiled("build/sprites/grassland.png",
-                                        _INITIAL_WIDTH, _INITIAL_HEIGHT,
-                                        128, 128,
-                                        4, 6,
-                                        4, 10);
+            let bgImg = resources.spr_tiledGrass();
 
             return function () {
-                _drawSprite(bgImg, 0, y-_INITIAL_HEIGHT);
+                _drawSprite(bgImg, 0, y-GAME_FIELD_HEIGHT);
                 _drawSprite(bgImg, 0, y);
 
                 if (game.accelerating() && !game.gameOver())
                     y += movingSpeed;
 
-                if (y >= _INITIAL_HEIGHT)
+                if (y >= GAME_FIELD_HEIGHT)
                     y = 0;
             };
         })();
@@ -559,7 +579,7 @@
                     entity.sprite.update(dt);
 
                 if (entity.draw && entity instanceof Enemy && entity.disappeared)
-                        _drawSprite(entity.sprite, 0, entity.y-entity.height/2);
+                    _drawSprite(entity.sprite, 0, entity.y-entity.height/2);
 
                 else if (entity.draw)
                     _drawSprite(entity.sprite, entity.x, entity.y-entity.height/2);
@@ -569,8 +589,8 @@
 
         return {
             render: _render,
-            INITIAL_WIDTH: _INITIAL_WIDTH,
-            INITIAL_HEIGHT: _INITIAL_HEIGHT,
+            GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
+            GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
             canvas: _canvas,
             currentWidth: function () { return _currentWidth; }
         };
@@ -580,11 +600,29 @@
     // Game
     game = (function() {
         /* jshint validthis: true */
-        let _playerWalkingUp = new Sprite().animated("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, false, 3, 3);
-        let _enemySprite = new Sprite().static("build/sprites/animals.png", 60, 60, 26, 36, 4, 7);
-        let _playerExplode = new Sprite().animated("build/sprites/explosion.png", 60, 60, 223, 174, 21, 21, true, 0, 0);
-        let _pileOfLeaves = new Sprite().tiled("build/sprites/grassland.png", renderer.INITIAL_WIDTH, 60, 128, 128, 15, 4, 6, 1);
-        let _tapIcon = new Sprite().animated("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, false, 0, 0);
+
+        let _lanes = {
+            NUM_LANES: 4,
+
+            getNumber: function(x) {
+                let i;
+                for (i = 1; i <= this.NUM_LANES; i++) {
+                    if ( x < GAME_FIELD_WIDTH * (i/this.NUM_LANES) ) {
+                        return i;
+                    }
+                }
+
+                return -1;
+            },
+
+            getCenterX: function(laneNumber) {
+                return (GAME_FIELD_WIDTH / this.NUM_LANES) * (laneNumber-1) + 20;
+            },
+
+            randomLane: function() {
+                return randomInt(this.NUM_LANES) + 1;
+            }
+        };
 
         let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
         let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
@@ -597,59 +635,56 @@
         
         let _accelerating = false;
         let _inputBuffered, _inputEventFired;
-
-        let _numTutorials = 2;
-        let _tutorialSpots;
-        let _tutorialCounter = 0;
-        let _waveCounter = 0;
+        
+        let _wavesPassed = 0;
 
         let _started = false;
         let _gameOver;
+
+        let _tutorialEnabled = true;
+        let _tutorialLanes;
 
         let _updateFunc;
         let _gameOverAnimation;
 
         let _score;
         let _highScores;
+
         // Initialize to something that enemies will never reach
-        let _invisTurningPoint = renderer.INITIAL_HEIGHT * 2;
+        let _invisTurningPoint = GAME_FIELD_HEIGHT * 2;
         let _startBtn = document.querySelector("#start_button");
 
         // Spawn a wave of enemies
         function _spawnWave() {
-            let enemy, enemySpot;
-            let invisTurningWave = 5;
+            let enemy, enemyLane;
+            let invisTurningWave = 3;
 
             // Easy waves are over, begin turning invisible
-            if (_waveCounter === invisTurningWave) {
-                _invisTurningPoint = renderer.INITIAL_HEIGHT / 2;
+            if (_wavesPassed === invisTurningWave) {
+                _invisTurningPoint = GAME_FIELD_HEIGHT / 2;
             }
 
             // Every wave, enemies turn invisible a littler sooner
             // caps at y = 80
             if (_invisTurningPoint >= 80)
-                _invisTurningPoint -= 10;
+                _invisTurningPoint -= 5;
 
-            // Pick a spot to populate
-            enemySpot = (renderer.INITIAL_WIDTH / _player.rangeOfMovement) * 
-                            randomInt(_player.rangeOfMovement) + 20;
+            // Pick a lane to populate
+            enemyLane = _lanes.getCenterX( _lanes.randomLane() );
 
             // make an enemy
             enemy = _enemyPool.take();
 
-            enemy.x = enemySpot;
+            enemy.x = enemyLane;
             enemy.y = -10;
             enemy.speed = _enemySpeed;
             enemy.invisPointY = _invisTurningPoint;
-            enemy.sprite = _enemySprite;
+            enemy.sprite = resources.spr_enemy();
             enemy.disappeared = false;
 
             _addEntity(enemy);
 
-            // Increment spawned waves counter
-            _waveCounter++;
-
-            return enemySpot;
+            return enemyLane;
         }
         // Add onto game score
         function _addScore(num) {
@@ -689,7 +724,7 @@
         function _setGameOver() {
             if (!_gameOver) {
                 _gameOver = true;
-                _player.sprite = _playerExplode;
+                _player.sprite = resources.spr_explosion();
                 _startBtn.style.display = "block";
                 _insertScore(Math.round(_score));
                 
@@ -703,17 +738,16 @@
             _entities = [];
             _enemies = [];
             _entitiesToRemove = [];
-            _tutorialSpots = [];
-            _tutorialCounter = 0;
-            _waveCounter = 0;
+            _tutorialLanes = [];
+            _wavesPassed = -1;
             _gameOver = false;
             _accelerating = false;
             _inputBuffered = true;
             _inputEventFired = false;
             _score = 0;
             _lastFrameTime = 0;
-            _invisTurningPoint = renderer.INITIAL_HEIGHT * 2;
-            _playerExplode.resetAnimation();
+            _invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+            
 
             // Make start button disappear
             _startBtn.style.display = "none";
@@ -728,19 +762,9 @@
                 }
             }
 
-            // Spawn player & begin spawning enemies
-            _addEntity(new Player(0, renderer.INITIAL_HEIGHT - 60, _playerWalkingUp));
-            
-            // Spawn initial wave and initial tutorial
-            let tutorialTap = _tempPool.take();
-
-            tutorialTap.x = _spawnWave();
-            tutorialTap.y = renderer.INITIAL_HEIGHT * (3/4);
-            tutorialTap.width = _tapIcon.width;
-            tutorialTap.height = _tapIcon.height;
-            tutorialTap.sprite = _tapIcon;
-
-            _addEntity(tutorialTap);            
+            // Spawn player and first wave
+            _addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT - 60, resources.spr_playerWalkingUp()));
+            _tutorialLanes.push(_spawnWave());
 
             // Begin game loop
             if (!_started) {
@@ -748,7 +772,7 @@
                 _updateFunc = this.update.bind(this);
 
                 if (_gameOverAnimation)
-                    cancelAnimationFrame(_gameOverAnimation);
+                    window.cancelAnimationFrame(_gameOverAnimation);
 
                 window.requestAnimationFrame(_updateFunc);
             }
@@ -781,6 +805,11 @@
                 let entityToRemove = entitiesToRemove[i];
                 let idxToRemove;
 
+                // Put back the entity's sprite
+                if (entityToRemove.sprite !== null) {
+                    resources.putSpriteBack(entityToRemove.sprite);
+                }
+
                 // General entities array
                 idxToRemove = _entities.indexOf(entityToRemove);
                 
@@ -796,6 +825,8 @@
                     mutableRemoveIndex(_enemies, idxToRemove);
                     // Put the object back in its pool
                     _enemyPool.putBack(entityToRemove);
+                    // Update waves passed
+                    _wavesPassed++;
                 }
 
                 // Temporary Entitites
@@ -821,8 +852,8 @@
         // Update game
         function _update(time) {
             let entity;
-            let stoppingThreshold = _player.y - _player.height;
-            let newWaveThreshold = renderer.INITIAL_HEIGHT / 4;
+            let stoppingThreshold = _player.y - _player.height*1.5;
+            let newWaveThreshold = GAME_FIELD_HEIGHT / 4;
             let alertZone;
             let i;
 
@@ -848,12 +879,11 @@
                     entity.update(dt);
 
                 // Entity offscreen? Delet
-                if (entity.y > renderer.INITIAL_HEIGHT) {
+                if (entity.y > GAME_FIELD_HEIGHT) {
                     _entitiesToRemove.push(entity);
 
                     if (entity instanceof Enemy) {
                         _player.loseLife();
-                        //window.navigator.vibrate(200);
                         
                         if (_inputBuffered)
                             _toggleInputBuffer();
@@ -862,6 +892,7 @@
 
                 // Check collisions with player
                 else if (entity instanceof Enemy && _isColliding(entity, _player)) {
+                    // Add life, kill enemy, update waves passed
                     _player.addLife();
                     _entitiesToRemove.push(entity);
 
@@ -881,47 +912,92 @@
                 else if (entity instanceof Enemy &&
                         entity.y >= entity.invisPointY &&
                         entity.y < entity.invisPointY + entity.speed) {
-                            entity.sprite = _pileOfLeaves;
+                            entity.sprite = resources.spr_leafPile();
 
                             entity.draw = true;
                             entity.disappeared = true;
                 }
 
-                // Spawn a new wave?
+                // Tutorial section?
+                if (_tutorialEnabled) {
+
+                    // Spawn 3 waves of normal guys along with tutorial tap
+                    if (-1 <= _wavesPassed && _wavesPassed <= 2) {
+                        let tutorialTap;
+
+                        // Put a tutorial sign at the beginning of the game
+                        if (_wavesPassed === -1) {
+
+                            // Create tutorial stuff
+                            tutorialTap = _tempPool.take();
+
+                            tutorialTap.x = _tutorialLanes[++_wavesPassed];
+                            tutorialTap.y = GAME_FIELD_HEIGHT * (3/4);
+                            tutorialTap.sprite = resources.spr_tapIcon();
+                            tutorialTap.width = tutorialTap.sprite.width;
+                            tutorialTap.height = tutorialTap.sprite.height;
+
+                            _addEntity(tutorialTap);
+                        }
+
+                        // Put a tutorial sign when paused
+                        else if (_accelerating && 
+                                !_inputBuffered &&
+                                 entity instanceof Enemy &&
+                                 entity.y >= stoppingThreshold &&
+                                 entity.y < stoppingThreshold + entity.speed) {
+
+                                // Pause
+                                _toggleAcceleration();
+                                _toggleInputBuffer();
+
+                                // Create tutorial stuff
+                                tutorialTap = _tempPool.take();
+
+                                tutorialTap.x = _tutorialLanes[_wavesPassed];
+                                tutorialTap.y = GAME_FIELD_HEIGHT * (3/4);
+                                tutorialTap.sprite = resources.spr_tapIcon();
+                                tutorialTap.width = tutorialTap.sprite.width;
+                                tutorialTap.height = tutorialTap.sprite.height;
+
+                                _addEntity(tutorialTap);
+                        }
+                    }
+
+                    // Then spawn a couple waves of invis guys that still flash, with tutorial tap
+                    
+
+                    // End tutorial, begin real stuff
+                    else if (_wavesPassed >= 3) {
+                        _tutorialEnabled = false;
+                    }
+                }
+
+                // Pause the game when a wave is within a distance
+                // of the player
+                else if (_accelerating && 
+                    !_inputBuffered &&
+                    entity instanceof Enemy &&
+                    entity.y >= stoppingThreshold &&
+                    entity.y < stoppingThreshold + entity.speed) {
+
+                        _toggleAcceleration();
+                        _toggleInputBuffer();
+                }
+
+                // Spawn a new wave after previous wave passed
+                // a certain distance
                 if (entity instanceof Enemy &&
                     entity.y >= newWaveThreshold &&
                     entity.y < newWaveThreshold + entity.speed) {
-                        let enemySpot = _spawnWave();
 
-                        if (_tutorialSpots.length < _numTutorials)
-                            _tutorialSpots.push(enemySpot);
+                    let enemyLane = _spawnWave();
+
+                    if (_tutorialEnabled)
+                        _tutorialLanes.push(enemyLane);
                 }
 
-                // Is it hammertime?
-                if (entity instanceof Enemy &&
-                    _accelerating && 
-                    !_inputBuffered &&
-                    entity.y >= stoppingThreshold &&
-                    entity.y < stoppingThreshold + entity.speed) {
-                        _toggleAcceleration();
-                        _toggleInputBuffer();
-
-                        if (_tutorialCounter < _numTutorials) {
-                            let tutorialTap = _tempPool.take();
-
-                            tutorialTap.x = _tutorialSpots[_tutorialCounter];
-                            tutorialTap.y = renderer.INITIAL_HEIGHT * (3/4);
-                            tutorialTap.width = _tapIcon.width;
-                            tutorialTap.height = _tapIcon.height;
-                            tutorialTap.sprite = _tapIcon;
-
-                            _addEntity(tutorialTap);
-
-                            _tutorialCounter++;
-                        }
-                }
-
-                // Remove temp entities when input event fired
+                // Remove temp entities when an input event is fired
                 if (_inputEventFired && entity instanceof TempEntity)
                     _entitiesToRemove.push(entity);
             }
@@ -949,6 +1025,7 @@
             toggleAcceleration: _toggleAcceleration,
             toggleInputBuffer: _toggleInputBuffer,
             setInputEventFired: _setInputEventFired,
+            lanes: _lanes,
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
             //score: function() { return _score; },
@@ -977,7 +1054,7 @@
         // which or keyCode depends on browser support
         let key = e.which || e.keyCode;
 
-        // Move player to spot according to key pressed
+        // Move player to lane according to key pressed
         if(keybinds[key] !== undefined && game.player() && !game.gameOver()) {
             e.preventDefault();
             
@@ -1033,7 +1110,7 @@
     // x and y in game coords
     function getRelativeEventCoords(event) {
         // Scale coords correctly
-        let scale = renderer.currentWidth() / renderer.INITIAL_WIDTH;
+        let scale = renderer.currentWidth() / GAME_FIELD_WIDTH;
 
         // Get x and y values
         let x = event.pageX - getOffsetLeft(renderer.canvas);
@@ -1050,29 +1127,13 @@
     ///////////////////////////////////////
     function clickStart(e) {
         let clickLocation = getRelativeEventCoords(e);
-        let spot;
         let player = game.player();
-        let numSpots;
     
         e.preventDefault();
 
         if (!game.gameOver() && player) {
-            numSpots  = player.rangeOfMovement;
 
-            if (clickLocation.x < renderer.INITIAL_WIDTH * (1/numSpots)) {
-                spot = 0;
-            }
-            else if (clickLocation.x < renderer.INITIAL_WIDTH * (2/numSpots)) {
-                spot = 1;
-            }
-            else if (clickLocation.x < renderer.INITIAL_WIDTH * (3/numSpots)) {
-                spot = 2;
-            }
-            else {
-                spot = 3;
-            }
-            
-            player.move(spot);
+            player.move( game.lanes.getNumber(clickLocation.x) );
             game.setInputEventFired();
 
             if (!game.accelerating())
@@ -1091,31 +1152,16 @@
     function touchStart(e) {
         let touches = e.changedTouches;
         let touchLocation;
-        let spot;
         let player = game.player();
-        let numSpots;
     
         e.preventDefault();
 
         if (!game.gameOver() && player) {
-            numSpots = player.rangeOfMovement;
+            
             for (let i = touches.length - 1; i >= 0; i--) {
                 touchLocation = getRelativeEventCoords(touches[i]);
         
-                if (touchLocation.x < renderer.INITIAL_WIDTH * (1/numSpots)) {
-                    spot = 0;
-                }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH * (2/numSpots)) {
-                    spot = 1;
-                }
-                else if (touchLocation.x < renderer.INITIAL_WIDTH * (3/numSpots)) {
-                    spot = 2;
-                }
-                else {
-                    spot = 3;
-                }
-                
-                player.move(spot);
+                player.move( game.lanes.getNumber(touchLocation.x) );
                 game.setInputEventFired();
 
                 if (!game.accelerating())
