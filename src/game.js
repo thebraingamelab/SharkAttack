@@ -129,6 +129,11 @@
                this.top() <= r2.bottom() && this.bottom() >= r2.top();
     };
 
+    Rectangle.prototype.contains = function (x, y) {
+        return this.left() <= x && x <= this.right() &&
+               this.bottom() <= y && y <= this.top();
+    };
+
     Rectangle.prototype.union = function (r2) {
         let x, y, width, height;
     
@@ -333,8 +338,8 @@
     
     // Entity rectangle collision
     Entity.prototype.collisionRect = function () {
-        this.hitbox.x = this.x - this.width/2;
-        this.hitbox.y = this.y - this.height/2;
+        this.hitbox.x = this.x;
+        this.hitbox.y = this.y;
         this.hitbox.width = this.width;
         this.hitbox.height = this.height;
 
@@ -349,6 +354,14 @@
         this.hitbox.height = 1;
 
         return this.hitbox;
+    };
+
+    // Check collisions
+    Entity.prototype.isCollidingWith = function(entity2) {
+        let myHitbox = this.collisionRect();
+        let notMyHitbox = entity2.collisionRect();
+
+        return myHitbox.intersects(notMyHitbox);
     };
 
     // Temporary Entity object (goes away pretty soon)
@@ -402,19 +415,22 @@
             game.setGameOver();
     };
 
-    // Move player to a lane 1-4
-    Player.prototype.move = function (laneNum) {
-        // 4 lanes of movement on screen
-        this.x = game.lanes.getCenterX(laneNum);
+    // Move player to new coordinates
+    Player.prototype.move = function (x, y) {
+        this.x = x;
+        this.y = y;
     };
 
     // Enemy object
     function Enemy(x, y, speed, invisPointY, sprite) {
-        Entity.call(this, x, y, 40, 10, sprite);
+        Entity.call(this, x, y, 40, 40, sprite);
         
         this.invisPointY = invisPointY;
         this.speed = speed;
-        this.disappeared = false;
+        this.isFake = false;
+        this.lane = 1;
+        this.triggeredWave = false;
+        this.triggeredPause = false;
     }
 
     // Enemy extends Entity
@@ -425,7 +441,10 @@
 
         this.invisPointY = 0;
         this.speed = 0;
-        this.disappeared = false;
+        this.lane = 1;
+        this.isFake = false;
+        this.triggeredWave = false;
+        this.triggeredPause = false;
     };
 
     Enemy.prototype.clone = function () {
@@ -446,27 +465,31 @@
 
     const GAME_FIELD_HEIGHT = 720;
     const GAME_FIELD_WIDTH = 480;
+    const GAME_SPEED = 20;
 
     // Resources
     resources = (function () {
         let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
-        let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
-        _playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
+        // Sprites
+        //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
+        //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
         let _enemySprite = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 36, 1, 0, 4, 7);
         let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 60, 60, 223, 174, 21, 21, 0, 0);
-        let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
+        //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
         let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 4, 6, 4, 10);
-
+        let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
+        
         return {
-            spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
+            /*spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },*/
             spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
             spr_explosion: function() { return _spritePool.take().copyAttributes(_playerExplode); },
-            spr_leafPile: function() { return _spritePool.take().copyAttributes(_pileOfLeaves); },
+            /*spr_leafPile: function() { return _spritePool.take().copyAttributes(_pileOfLeaves); },*/
             spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
             spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
+            spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
 
             putSpriteBack: function(spr) { _spritePool.putBack(spr); }
         };
@@ -542,12 +565,13 @@
                                     x, y,
                                     sprite.width, sprite.height);
             }
+            
         }
 
         // Draw moving background
         let _drawBG = (function () {
             let y = 0;
-            let movingSpeed = 6;
+            let movingSpeed = GAME_SPEED;
             let bgImg = resources.spr_tiledGrass();
 
             return function () {
@@ -572,17 +596,20 @@
             _drawBG();
 
             // Draw every game entity and update their sprites
-            for(i = 0; i < entities.length; i++) {
+            for (i = 0; i < entities.length; i++) {
                 entity = entities[i];
+
+                _context.fillStyle = "#FF0000";
+                //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
+
+                if (clickBox !== null)
+                    _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
 
                 if (game.accelerating() || entity instanceof TempEntity)
                     entity.sprite.update(dt);
 
-                if (entity.draw && entity instanceof Enemy && entity.disappeared)
-                    _drawSprite(entity.sprite, 0, entity.y-entity.height/2);
-
-                else if (entity.draw)
-                    _drawSprite(entity.sprite, entity.x, entity.y-entity.height/2);
+                if (entity.draw)
+                    _drawSprite(entity.sprite, entity.x, entity.y-(entity.height/2));
                 
             }
         }
@@ -601,39 +628,19 @@
     game = (function() {
         /* jshint validthis: true */
 
-        let _lanes = {
-            NUM_LANES: 4,
-
-            getNumber: function(x) {
-                let i;
-                for (i = 1; i <= this.NUM_LANES; i++) {
-                    if ( x < GAME_FIELD_WIDTH * (i/this.NUM_LANES) ) {
-                        return i;
-                    }
-                }
-
-                return -1;
-            },
-
-            getCenterX: function(laneNumber) {
-                return (GAME_FIELD_WIDTH / this.NUM_LANES) * (laneNumber-1) + 20;
-            },
-
-            randomLane: function() {
-                return randomInt(this.NUM_LANES) + 1;
-            }
-        };
-
         let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
         let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
 
-        let _entities, _entitiesToRemove, _enemies;
+        let _entities, _entitiesToRemove, _enemies, _cloneList;
         let _player;
-        let _enemySpeed = 6;
+        let _enemySpeed = GAME_SPEED;
+
+        let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
+        let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
 
         let _lastFrameTime;
         
-        let _accelerating = false;
+        let _accelerating;
         let _inputBuffered, _inputEventFired;
         
         let _wavesPassed = 0;
@@ -654,38 +661,93 @@
         let _invisTurningPoint = GAME_FIELD_HEIGHT * 2;
         let _startBtn = document.querySelector("#start_button");
 
-        // Spawn a wave of enemies
-        function _spawnWave() {
-            let enemy, enemyLane;
-            let invisTurningWave = 3;
+        let _lanes = (function() {
+            const NUM_LANES = 6;
 
-            // Easy waves are over, begin turning invisible
-            if (_wavesPassed === invisTurningWave) {
-                _invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+            let laneList = [];
+            let i;
+
+            // Populate the list of lanes with the x coord of each right bound
+            for (i = 1; i <= NUM_LANES; i++) {
+                laneList.push(GAME_FIELD_WIDTH * (i/NUM_LANES));
             }
 
-            // Every wave, enemies turn invisible a littler sooner
-            // caps at y = 80
-            if (_invisTurningPoint >= 80)
-                _invisTurningPoint -= 5;
+            // Get the lane number by x coordinate
+            function getLaneByLocation(x) {
+                for (i = 0; i < NUM_LANES; i++) {
+                    if ( x < laneList[i] ) {
+                        return i;
+                    }
+                }
 
-            // Pick a lane to populate
-            enemyLane = _lanes.getCenterX( _lanes.randomLane() );
+                return -1;
+            }
 
-            // make an enemy
-            enemy = _enemyPool.take();
+            // Get the center of a numbered lane
+            function getCenterX(laneNumber) {
+                return (GAME_FIELD_WIDTH / NUM_LANES) * laneNumber + 20;
+            }
 
-            enemy.x = enemyLane;
-            enemy.y = -10;
-            enemy.speed = _enemySpeed;
-            enemy.invisPointY = _invisTurningPoint;
-            enemy.sprite = resources.spr_enemy();
-            enemy.disappeared = false;
+            return {
+                NUM_LANES: NUM_LANES,
+                getLaneByLocation: getLaneByLocation,
+                getCenterX: getCenterX
+            };
+        })();
 
-            _addEntity(enemy);
+        // Spawn a wave of enemies
+        let _spawnWave = (function() {
+            let invisTurningWave = 3;
+            let numClones = 1;
 
-            return enemyLane;
-        }
+            return function () {
+                let enemy, realEnemy, enemyLane, i;
+
+                // Easy waves are over, begin turning invisible
+                if (_wavesPassed === invisTurningWave) {
+                    _invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                }
+
+                // Every wave, enemies turn invisible a littler sooner
+                // caps at y = 80
+                if (_invisTurningPoint >= 80)
+                    _invisTurningPoint -= 1;
+                
+                // Every 10 waves, enemies get another shadow clone
+                if (_wavesPassed%20 === 0)
+                    numClones += _wavesPassed/20;
+
+
+                // make several enemies
+
+                enemyLane = randomInt(_lanes.NUM_LANES - numClones);
+
+                for (i = 0; i <= numClones && numClones <= _lanes.NUM_LANES; i++) {
+                    enemy = _enemyPool.take();
+
+                    enemy.lane = enemyLane+i;
+                    enemy.x = _lanes.getCenterX(enemyLane+i);
+                    enemy.y = -10;
+                    enemy.speed = _enemySpeed;
+                    enemy.invisPointY = _invisTurningPoint;
+                    enemy.sprite = resources.spr_enemy();
+                    enemy.draw = false;
+                    enemy.isFake = true;
+                    enemy.triggeredWave = false;
+                    enemy.triggeredPause = false;
+
+                    _cloneList[i] = enemy;
+                    _addEntity(enemy);
+                }
+
+                // Pick an enemy to be the real one
+                realEnemy = _cloneList[randomInt(_cloneList.length)];
+                realEnemy.isFake = false;
+                realEnemy.draw = true;
+
+                return realEnemy.lane;
+            };
+        })();
         // Add onto game score
         function _addScore(num) {
             _score += num;
@@ -724,7 +786,7 @@
         function _setGameOver() {
             if (!_gameOver) {
                 _gameOver = true;
-                _player.sprite = resources.spr_explosion();
+                //_player.sprite = resources.spr_explosion();
                 _startBtn.style.display = "block";
                 _insertScore(Math.round(_score));
                 
@@ -737,12 +799,13 @@
             if (_entities) _removeEntities(_entities);
             _entities = [];
             _enemies = [];
+            _cloneList = [];
             _entitiesToRemove = [];
             _tutorialLanes = [];
-            _wavesPassed = -1;
+            _wavesPassed = 0;
             _gameOver = false;
-            _accelerating = false;
-            _inputBuffered = true;
+            _accelerating = true;
+            _inputBuffered = false;
             _inputEventFired = false;
             _score = 0;
             _lastFrameTime = 0;
@@ -763,7 +826,8 @@
             }
 
             // Spawn player and first wave
-            _addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT - 60, resources.spr_playerWalkingUp()));
+            //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
+            _player = new Player(-100, -100, null);
             _tutorialLanes.push(_spawnWave());
 
             // Begin game loop
@@ -780,8 +844,6 @@
 
         // Add an entity into the game
         function _addEntity(entity) {
-            _entities.push(entity);
-
             if (entity instanceof Player) {
                 _player = entity;
             }
@@ -789,6 +851,8 @@
             else if (entity instanceof Enemy) {
                 _enemies.push(entity);
             }
+
+            _entities.push(entity);
         }
 
         // Remove entities from game
@@ -806,9 +870,8 @@
                 let idxToRemove;
 
                 // Put back the entity's sprite
-                if (entityToRemove.sprite !== null) {
+                if (entityToRemove.sprite !== null)
                     resources.putSpriteBack(entityToRemove.sprite);
-                }
 
                 // General entities array
                 idxToRemove = _entities.indexOf(entityToRemove);
@@ -825,8 +888,6 @@
                     mutableRemoveIndex(_enemies, idxToRemove);
                     // Put the object back in its pool
                     _enemyPool.putBack(entityToRemove);
-                    // Update waves passed
-                    _wavesPassed++;
                 }
 
                 // Temporary Entitites
@@ -841,20 +902,11 @@
             }
         }
 
-        // Check for a collision between two entities
-        function _isColliding(entity1, entity2) {
-            let hbox1 = entity1.collisionLine();
-            let hbox2 = entity2.collisionLine();
-
-            return hbox1.intersects(hbox2);
-        }
-
         // Update game
         function _update(time) {
             let entity;
-            let stoppingThreshold = _player.y - _player.height*1.5;
-            let newWaveThreshold = GAME_FIELD_HEIGHT / 4;
             let alertZone;
+            let pauseThresholdPassed = false;
             let i;
 
             // Smooth FPS
@@ -873,7 +925,7 @@
             // Update all entities
             for (i = 0; i < _entities.length; i++) {
                 entity = _entities[i];
-                alertZone = entity.invisPointY-newWaveThreshold;
+                alertZone = entity.invisPointY-_newWaveThreshold;
 
                 if (_accelerating)
                     entity.update(dt);
@@ -882,86 +934,75 @@
                 if (entity.y > GAME_FIELD_HEIGHT) {
                     _entitiesToRemove.push(entity);
 
-                    if (entity instanceof Enemy) {
-                        _player.loseLife();
+                    if (entity instanceof Enemy && !entity.isFake) {
+                        // Update waves passed
+                        _wavesPassed++;
+
+                        // Lose life for missing one
+                        //_player.loseLife();
                         
                         if (_inputBuffered)
                             _toggleInputBuffer();
                     }
                 }
 
-                // Check collisions with player
-                else if (entity instanceof Enemy && _isColliding(entity, _player)) {
+                /*/ Check collisions with player
+                else if (entity instanceof Enemy &&
+                        !entity.isFake && 
+                        entity.isCollidingWith(_player)) {
                     // Add life, kill enemy, update waves passed
                     _player.addLife();
                     _entitiesToRemove.push(entity);
+                    
+                    _wavesPassed++;
 
                     if (_inputBuffered)
                         _toggleInputBuffer();
-                }
+                }*/
 
                 // About to be invisible? Flash!
                 else if (entity instanceof Enemy &&
-                    entity.y >= alertZone &&
-                    entity.y < entity.invisPointY) {
+                        entity.isFake &&
+                        entity.y >= alertZone &&
+                        entity.y < entity.invisPointY) {
                         
-                        entity.draw = !entity.draw;
+                    entity.draw = !entity.draw;
                 }
 
                 // Invisible?
                 else if (entity instanceof Enemy &&
-                        entity.y >= entity.invisPointY &&
-                        entity.y < entity.invisPointY + entity.speed) {
-                            entity.sprite = resources.spr_leafPile();
+                         entity.isFake &&
+                         entity.y >= entity.invisPointY) {
 
-                            entity.draw = true;
-                            entity.disappeared = true;
+                    entity.draw = true;
                 }
 
                 // Tutorial section?
                 if (_tutorialEnabled) {
+                    let tutorialTap;
 
                     // Spawn 3 waves of normal guys along with tutorial tap
-                    if (-1 <= _wavesPassed && _wavesPassed <= 2) {
-                        let tutorialTap;
-
-                        // Put a tutorial sign at the beginning of the game
-                        if (_wavesPassed === -1) {
-
-                            // Create tutorial stuff
-                            tutorialTap = _tempPool.take();
-
-                            tutorialTap.x = _tutorialLanes[++_wavesPassed];
-                            tutorialTap.y = GAME_FIELD_HEIGHT * (3/4);
-                            tutorialTap.sprite = resources.spr_tapIcon();
-                            tutorialTap.width = tutorialTap.sprite.width;
-                            tutorialTap.height = tutorialTap.sprite.height;
-
-                            _addEntity(tutorialTap);
-                        }
-
-                        // Put a tutorial sign when paused
-                        else if (_accelerating && 
-                                !_inputBuffered &&
-                                 entity instanceof Enemy &&
-                                 entity.y >= stoppingThreshold &&
-                                 entity.y < stoppingThreshold + entity.speed) {
+                    if (0 <= _wavesPassed && _wavesPassed <= 2 &&
+                        _accelerating && 
+                        !_inputBuffered &&
+                        entity instanceof Enemy &&
+                        entity.y >= _stoppingThreshold &&
+                        !entity.triggeredPause) {
 
                                 // Pause
-                                _toggleAcceleration();
-                                _toggleInputBuffer();
+                                pauseThresholdPassed = true;
+                                entity.triggeredPause = true;
 
                                 // Create tutorial stuff
                                 tutorialTap = _tempPool.take();
 
-                                tutorialTap.x = _tutorialLanes[_wavesPassed];
+                                tutorialTap.x = _lanes.getCenterX( _tutorialLanes[_wavesPassed] );
                                 tutorialTap.y = GAME_FIELD_HEIGHT * (3/4);
                                 tutorialTap.sprite = resources.spr_tapIcon();
                                 tutorialTap.width = tutorialTap.sprite.width;
                                 tutorialTap.height = tutorialTap.sprite.height;
 
                                 _addEntity(tutorialTap);
-                        }
                     }
 
                     // Then spawn a couple waves of invis guys that still flash, with tutorial tap
@@ -978,20 +1019,23 @@
                 else if (_accelerating && 
                     !_inputBuffered &&
                     entity instanceof Enemy &&
-                    entity.y >= stoppingThreshold &&
-                    entity.y < stoppingThreshold + entity.speed) {
+                    entity.y >= _stoppingThreshold &&
+                    !entity.triggeredPause) {
 
-                        _toggleAcceleration();
-                        _toggleInputBuffer();
+                        pauseThresholdPassed = true;
+                        entity.triggeredPause = true;
                 }
 
                 // Spawn a new wave after previous wave passed
                 // a certain distance
                 if (entity instanceof Enemy &&
-                    entity.y >= newWaveThreshold &&
-                    entity.y < newWaveThreshold + entity.speed) {
+                    !entity.isFake &&
+                    entity.y >= _newWaveThreshold &&
+                    !entity.triggeredWave) {
 
                     let enemyLane = _spawnWave();
+                    entity.triggeredWave = true;
+                    
 
                     if (_tutorialEnabled)
                         _tutorialLanes.push(enemyLane);
@@ -1000,6 +1044,11 @@
                 // Remove temp entities when an input event is fired
                 if (_inputEventFired && entity instanceof TempEntity)
                     _entitiesToRemove.push(entity);
+            }
+
+            if (pauseThresholdPassed) {
+                _toggleAcceleration();
+                _toggleInputBuffer();
             }
 
             // Toggle flag
@@ -1026,6 +1075,7 @@
             toggleInputBuffer: _toggleInputBuffer,
             setInputEventFired: _setInputEventFired,
             lanes: _lanes,
+            addEntity: _addEntity,
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
             //score: function() { return _score; },
@@ -1072,6 +1122,9 @@
     //////////////////////////////////////
     // Input helper functions
     ///////////////////////////////////////
+    let clickBoxSize = 20;
+    let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize);
+    let clickZoneY = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
 
     // Get left offset of element
     function getOffsetLeft(elem) {
@@ -1125,21 +1178,70 @@
     ///////////////////////////////////////
     // Click input
     ///////////////////////////////////////
+
     function clickStart(e) {
         let clickLocation = getRelativeEventCoords(e);
         let player = game.player();
+        let i;
+        let enemy, newX = -1, newY = -1;
     
         e.preventDefault();
+        e.stopImmediatePropagation();
 
-        if (!game.gameOver() && player) {
+        // Only register the input if the game is running
+        if (!game.gameOver() && player && clickLocation.y >= clickZoneY) {
 
-            player.move( game.lanes.getNumber(clickLocation.x) );
-            game.setInputEventFired();
+            clickBox.x = clickLocation.x-5;
+            clickBox.y = clickLocation.y-5;
 
-            if (!game.accelerating())
-                game.toggleAcceleration();
-            else if (!game.inputBuffered())
-                game.toggleInputBuffer();
+            // Did the user click on an enemy?
+            for (i = 0; i < game.enemies().length; i++) {
+                enemy = game.enemies()[i];
+
+                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+                    //newX = enemy.x;
+                    //newY = enemy.y;
+
+                    if (enemy.isFake) {
+                        enemy.sprite = resources.spr_bigX();
+                        player.loseLife();
+                    }
+                    else {
+                        enemy.sprite = resources.spr_explosion();
+                        player.addLife();
+                    }
+                    // Toggle event flag
+                    game.setInputEventFired();
+
+                    // Unpause the game
+                    if (!game.accelerating())
+                        game.toggleAcceleration();
+                    
+                    // If the game is already unpaused, buffer the input
+                    else if (!game.inputBuffered())
+                        game.toggleInputBuffer();
+                    }
+                
+            }
+
+            /* Move the player
+            
+            // Missed?
+            if (newX !== -1 || newY !== -1) {
+                player.move(newX, GAME_FIELD_HEIGHT-60);
+
+                // Toggle event flag
+                game.setInputEventFired();
+
+                // Unpause the game
+                if (!game.accelerating())
+                    game.toggleAcceleration();
+                
+                // If the game is already unpaused, buffer the input
+                else if (!game.inputBuffered())
+                    game.toggleInputBuffer();
+            }*/
+            
         }
     }
     
@@ -1147,27 +1249,55 @@
 
     ///////////////////////////////////////
     // Touch input
-    ///////////////////////////////////////
+    //////////////////////////////////////
     
     function touchStart(e) {
         let touches = e.changedTouches;
+        let enemy;
         let touchLocation;
         let player = game.player();
+        let i;
     
         e.preventDefault();
+        e.stopImmediatePropagation();
 
-        if (!game.gameOver() && player) {
+        touchLocation = getRelativeEventCoords(touches[touches.length-1]);
+
+        // Only register the input if the game is running
+        for (i = touches.length - 1; i >= 0 && !game.gameOver() && player; i--) {
+
+            touchLocation = getRelativeEventCoords(touches[i]);
+
+            clickBox.x = touchLocation.x-5;
+            clickBox.y = touchLocation.y-5;
+
+            // Did the user click on an enemy?
+            for (i = 0; i < game.enemies().length && touchLocation.y >= clickZoneY; i++) {
+
+                enemy = game.enemies()[i];
+
+                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+
+                    if (enemy.isFake) {
+                        enemy.sprite = resources.spr_bigX();
+                        player.loseLife();
+                    }
+                    else {
+                        enemy.sprite = resources.spr_explosion();
+                        player.addLife();
+                    }
+                    // Toggle event flag
+                    game.setInputEventFired();
+
+                    // Unpause the game
+                    if (!game.accelerating())
+                        game.toggleAcceleration();
+                    
+                    // If the game is already unpaused, buffer the input
+                    else if (!game.inputBuffered())
+                        game.toggleInputBuffer();
+                }
             
-            for (let i = touches.length - 1; i >= 0; i--) {
-                touchLocation = getRelativeEventCoords(touches[i]);
-        
-                player.move( game.lanes.getNumber(touchLocation.x) );
-                game.setInputEventFired();
-
-                if (!game.accelerating())
-                    game.toggleAcceleration();
-                else if (!game.inputBuffered())
-                    game.toggleInputBuffer();
             }
         }
     }
