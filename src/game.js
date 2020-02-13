@@ -599,17 +599,20 @@
             for (i = 0; i < entities.length; i++) {
                 entity = entities[i];
 
-                _context.fillStyle = "#FF0000";
+                //_context.fillStyle = "#FF0000";
                 //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                if (clickBox !== null)
-                    _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                //if (clickBox !== null)
+                //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
 
                 if (game.accelerating() || entity instanceof TempEntity)
                     entity.sprite.update(dt);
 
-                if (entity.draw)
-                    _drawSprite(entity.sprite, entity.x, entity.y-(entity.height/2));
+                if (entity.draw && entity instanceof TempEntity)
+                    _drawSprite(entity.sprite, entity.x, entity.y);
+
+                else if (entity.draw)
+                _drawSprite(entity.sprite, entity.x-(entity.width/4), entity.y-(entity.height/2));
                 
             }
         }
@@ -631,7 +634,7 @@
         let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
         let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
 
-        let _entities, _entitiesToRemove, _enemies, _cloneList;
+        let _entities, _entitiesToRemove, _enemies;
         let _player;
         let _enemySpeed = GAME_SPEED;
 
@@ -642,8 +645,6 @@
         
         let _accelerating;
         let _inputBuffered, _inputEventFired;
-        
-        let _wavesPassed = 0;
 
         let _started = false;
         let _gameOver;
@@ -657,8 +658,7 @@
         let _score;
         let _highScores;
 
-        // Initialize to something that enemies will never reach
-        let _invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+        
         let _startBtn = document.querySelector("#start_button");
 
         let _lanes = (function() {
@@ -696,56 +696,84 @@
         })();
 
         // Spawn a wave of enemies
-        let _spawnWave = (function() {
-            let invisTurningWave = 3;
-            let numClones = 1;
+        let _waves = (function() {
+            let invisTurningWave;
+            let numClones;
+            let invisTurningPoint; 
+            let wavesPassed;
+            let cloneList;
+            let nextDifficultyJump;
 
-            return function () {
+            function updateWavesPassed() {
+                wavesPassed++;
+                console.log(wavesPassed);
+            }
+
+            function init() {
+                invisTurningWave = 3;
+                numClones = 0;
+                wavesPassed = 0;
+                cloneList = [];
+                nextDifficultyJump = 5;
+                // Initialize to something that enemies will never reach
+                invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+            }
+
+            function spawn() {
                 let enemy, realEnemy, enemyLane, i;
 
                 // Easy waves are over, begin turning invisible
-                if (_wavesPassed === invisTurningWave) {
-                    _invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                if (wavesPassed === invisTurningWave) {
+                    invisTurningPoint = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
                 }
 
                 // Every wave, enemies turn invisible a littler sooner
                 // caps at y = 80
-                if (_invisTurningPoint >= 80)
-                    _invisTurningPoint -= 1;
-                
-                // Every 10 waves, enemies get another shadow clone
-                if (_wavesPassed%20 === 0)
-                    numClones += _wavesPassed/20;
+                if (invisTurningPoint >= 80)
+                    invisTurningPoint -= 2;
+
+                // Every xxx waves, enemies get another shadow clone
+                if (wavesPassed >= nextDifficultyJump) {
+                    numClones = Math.min(_lanes.NUM_LANES, Math.floor(numClones+1));
+                    nextDifficultyJump = Math.floor(wavesPassed + (nextDifficultyJump * 2));
+                }
 
 
                 // make several enemies
 
                 enemyLane = randomInt(_lanes.NUM_LANES - numClones);
 
-                for (i = 0; i <= numClones && numClones <= _lanes.NUM_LANES; i++) {
+                for (i = 0; i <= numClones; i++) {
                     enemy = _enemyPool.take();
 
                     enemy.lane = enemyLane+i;
                     enemy.x = _lanes.getCenterX(enemyLane+i);
                     enemy.y = -10;
                     enemy.speed = _enemySpeed;
-                    enemy.invisPointY = _invisTurningPoint;
+                    enemy.invisPointY = invisTurningPoint;
                     enemy.sprite = resources.spr_enemy();
                     enemy.draw = false;
                     enemy.isFake = true;
                     enemy.triggeredWave = false;
                     enemy.triggeredPause = false;
 
-                    _cloneList[i] = enemy;
+                    cloneList[i] = enemy;
                     _addEntity(enemy);
                 }
 
                 // Pick an enemy to be the real one
-                realEnemy = _cloneList[randomInt(_cloneList.length)];
+                realEnemy = cloneList[randomInt(cloneList.length)];
                 realEnemy.isFake = false;
                 realEnemy.draw = true;
 
                 return realEnemy.lane;
+            }
+
+            return {
+                init: init,
+                spawn: spawn,
+                updateWavesPassed: updateWavesPassed,
+                wavesPassed: function() { return wavesPassed; }
             };
         })();
         // Add onto game score
@@ -799,17 +827,15 @@
             if (_entities) _removeEntities(_entities);
             _entities = [];
             _enemies = [];
-            _cloneList = [];
             _entitiesToRemove = [];
             _tutorialLanes = [];
-            _wavesPassed = 0;
             _gameOver = false;
             _accelerating = true;
             _inputBuffered = false;
             _inputEventFired = false;
             _score = 0;
             _lastFrameTime = 0;
-            _invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+            _waves.init();
             
 
             // Make start button disappear
@@ -828,7 +854,7 @@
             // Spawn player and first wave
             //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
             _player = new Player(-100, -100, null);
-            _tutorialLanes.push(_spawnWave());
+            _tutorialLanes.push(_waves.spawn());
 
             // Begin game loop
             if (!_started) {
@@ -907,6 +933,7 @@
             let entity;
             let alertZone;
             let pauseThresholdPassed = false;
+            let wavesPassed = _waves.wavesPassed();
             let i;
 
             // Smooth FPS
@@ -935,8 +962,8 @@
                     _entitiesToRemove.push(entity);
 
                     if (entity instanceof Enemy && !entity.isFake) {
-                        // Update waves passed
-                        _wavesPassed++;
+                        // Increment waves passed
+                        _waves.updateWavesPassed();
 
                         // Lose life for missing one
                         //_player.loseLife();
@@ -981,8 +1008,8 @@
                 if (_tutorialEnabled) {
                     let tutorialTap;
 
-                    // Spawn 3 waves of normal guys along with tutorial tap
-                    if (0 <= _wavesPassed && _wavesPassed <= 2 &&
+                    // First 3 waves come with tutorial tap
+                    if (0 <= wavesPassed && wavesPassed <= 2 &&
                         _accelerating && 
                         !_inputBuffered &&
                         entity instanceof Enemy &&
@@ -996,8 +1023,8 @@
                                 // Create tutorial stuff
                                 tutorialTap = _tempPool.take();
 
-                                tutorialTap.x = _lanes.getCenterX( _tutorialLanes[_wavesPassed] );
-                                tutorialTap.y = GAME_FIELD_HEIGHT * (3/4);
+                                tutorialTap.x = _lanes.getCenterX( _tutorialLanes[wavesPassed] );
+                                tutorialTap.y = _stoppingThreshold;
                                 tutorialTap.sprite = resources.spr_tapIcon();
                                 tutorialTap.width = tutorialTap.sprite.width;
                                 tutorialTap.height = tutorialTap.sprite.height;
@@ -1009,7 +1036,7 @@
                     
 
                     // End tutorial, begin real stuff
-                    else if (_wavesPassed >= 3) {
+                    else if (wavesPassed >= 3) {
                         _tutorialEnabled = false;
                     }
                 }
@@ -1033,7 +1060,7 @@
                     entity.y >= _newWaveThreshold &&
                     !entity.triggeredWave) {
 
-                    let enemyLane = _spawnWave();
+                    let enemyLane = _waves.spawn();
                     entity.triggeredWave = true;
                     
 
