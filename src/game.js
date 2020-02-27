@@ -385,7 +385,7 @@
         Entity.call(this, x, y, 40, 40, sprite);
 
         this.rangeOfMovement = 4;
-        this.maxLife = 75;
+        this.maxLife = 3;
         this.life = this.maxLife;
     }
 
@@ -401,7 +401,7 @@
 
     // Increase life amount
     Player.prototype.addLife = function () {
-        this.life += 25;
+        this.life += 1;
         
         if (this.life >= this.maxLife)
             this.life = this.maxLife;
@@ -409,7 +409,7 @@
 
     // Decrease life
     Player.prototype.loseLife = function () {
-        this.life -= 25;
+        this.life -= 1;
         
         if (this.life <= 0)
             game.setGameOver();
@@ -497,6 +497,8 @@
 
     // Renderer
     renderer = (function () {
+        let livesDiv = document.querySelector("#lives");
+
         let _canvas = document.querySelector("#gameWindow");
         let _context = _canvas.getContext("2d");
 
