@@ -385,7 +385,7 @@
         Entity.call(this, x, y, 40, 40, sprite);
 
         this.rangeOfMovement = 4;
-        this.maxLife = 75;
+        this.maxLife = 3;
         this.life = this.maxLife;
     }
 
@@ -401,7 +401,7 @@
 
     // Increase life amount
     Player.prototype.addLife = function () {
-        this.life += 25;
+        this.life += 1;
         
         if (this.life >= this.maxLife)
             this.life = this.maxLife;
@@ -409,7 +409,7 @@
 
     // Decrease life
     Player.prototype.loseLife = function () {
-        this.life -= 25;
+        this.life -= 1;
         
         if (this.life <= 0)
             game.setGameOver();
@@ -468,10 +468,13 @@
     const GAME_SPEED = 20;
 
     // Resources
+    ///////////////////////////////////////
     resources = (function () {
         let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
         // Sprites
+        // imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col
+
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
         let _enemySprite = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 36, 1, 0, 4, 7);
@@ -481,7 +484,8 @@
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
         let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 4, 6, 4, 10);
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
-        
+        let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", 128, 128, 1024, 1024, 1, 0, 0, 0);
+
         return {
             /*spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },*/
             spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
@@ -490,13 +494,18 @@
             spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
             spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
             spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
+            spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
 
             putSpriteBack: function(spr) { _spritePool.putBack(spr); }
         };
     })();
 
     // Renderer
+    ///////////////////////////////////////
     renderer = (function () {
+        let _livesDiv = document.querySelector("#lives");
+        let _previousLives = 0;
+
         let _canvas = document.querySelector("#gameWindow");
         let _context = _canvas.getContext("2d");
 
@@ -586,6 +595,36 @@
             };
         })();
 
+        function _updateUI() {
+            let numLives = game.player().life;
+            let i;
+
+            if (!game.started()) {
+                _livesDiv.style.display = "none";
+            }
+            else if (game.started()) {
+                _livesDiv.style.display = "flex";
+            }
+
+            // Update Player Lives
+            if( _previousLives !== numLives ) {
+                _previousLives = numLives;
+
+
+                while( _livesDiv.hasChildNodes() ) {
+                    _livesDiv.removeChild(_livesDiv.firstChild);
+                }
+
+                // Add an image for each life
+                for(i = 0; i < numLives; i++) {
+                    let img = document.createElement("img");
+                    img.src = resources.spr_collar().image.src;
+
+                    _livesDiv.appendChild(img);
+                }
+            }
+        }
+
         // Render game elements and entities
         function _render(dt) {
             let entity;
@@ -594,6 +633,9 @@
 
             // Fill background
             _drawBG();
+            
+            // Update UI
+            _updateUI();
 
             // Draw every game entity and update their sprites
             for (i = 0; i < entities.length; i++) {
@@ -602,8 +644,8 @@
                 //_context.fillStyle = "#FF0000";
                 //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                //if (clickBox !== null)
-                //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                if (clickBox !== null)
+                   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
 
                 if (game.accelerating() || entity instanceof TempEntity)
                     entity.sprite.update(dt);
@@ -628,6 +670,7 @@
     })();
 
     // Game
+    ///////////////////////////////////////
     game = (function() {
         /* jshint validthis: true */
 
@@ -697,47 +740,60 @@
 
         // Spawn a wave of enemies
         let _waves = (function() {
-            let invisTurningWave;
             let numClones;
             let invisTurningPoint; 
             let wavesPassed;
             let cloneList;
-            let nextDifficultyJump;
 
             function updateWavesPassed() {
                 wavesPassed++;
-                console.log(wavesPassed);
             }
 
             function init() {
-                invisTurningWave = 3;
                 numClones = 0;
                 wavesPassed = 0;
                 cloneList = [];
-                nextDifficultyJump = 5;
                 // Initialize to something that enemies will never reach
                 invisTurningPoint = GAME_FIELD_HEIGHT * 2;
             }
 
             function spawn() {
                 let enemy, realEnemy, enemyLane, i;
+                console.log(wavesPassed);
+                // Wave events
+                switch(wavesPassed) {
+                    case 5:
+                        numClones = 1;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
 
-                // Easy waves are over, begin turning invisible
-                if (wavesPassed === invisTurningWave) {
-                    invisTurningPoint = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
+                    case 20:
+                        numClones = 2;
+                        break;
+
+                    case 35:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 60:
+                        numClones = 3;
+                        break;
+
+                    case 90:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 120:
+                        numClones = 4;
+                        break;
+
+                    case 160:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 4;
+                        break;
+
+                    default:
+                        // Do nothing
                 }
-
-                // Every wave, enemies turn invisible a littler sooner
-                // caps at y = 80
-                if (invisTurningPoint >= 80)
-                    invisTurningPoint -= 2;
-
-                // Every xxx waves, enemies get another shadow clone
-                if (wavesPassed >= nextDifficultyJump) {
-                    numClones = Math.min(_lanes.NUM_LANES, Math.floor(numClones+1));
-                    nextDifficultyJump = Math.floor(wavesPassed + (nextDifficultyJump * 2));
-                }
-
 
                 // make several enemies
 
@@ -1107,6 +1163,7 @@
             inputBuffered: function() { return _inputBuffered; },
             //score: function() { return _score; },
             //highScores: function () { return _highScores; },
+            started: function() { return _started; },
             gameOver: function() { return _gameOver; },
             entities: function () { return _entities; },
             enemies: function () { return _enemies; },
@@ -1116,42 +1173,117 @@
 
     })();
 
-    /*/////////////////////////////////////
-    // Keyboard input
-    ///////////////////////////////////////
-    let keybinds = {
-        // num keys 1-4
-        49: 0,
-        50: 1,
-        51: 2,
-        52: 3
-    };
-
-    function keyDown(e) {
-        // which or keyCode depends on browser support
-        let key = e.which || e.keyCode;
-
-        // Move player to lane according to key pressed
-        if(keybinds[key] !== undefined && game.player() && !game.gameOver()) {
-            e.preventDefault();
-            
-            game.player().move(keybinds[key]);
-
-            if (!game.accelerating())
-                game.toggleAcceleration();
-            else if (!game.inputBuffered())
-                game.toggleInputBuffer();
-        }
-    }
-
-    document.body.addEventListener('keydown', keyDown);*/
-
     //////////////////////////////////////
-    // Input helper functions
+    // Input Handling
     ///////////////////////////////////////
-    let clickBoxSize = 20;
+    let clickBoxSize = 30;
     let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize);
     let clickZoneY = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
+    let lastEvent = null;
+    let eventTime = null;
+    let inputDeviceSwapTime = 5000;
+
+    
+    // Touch
+    ///////////////////////////////////////
+    renderer.canvas.addEventListener("touchstart", function(event) {
+
+        if (lastEvent === "mousedown") {
+
+            if ( (Date.now() - eventTime) > inputDeviceSwapTime ) {
+                lastEvent = event.type;
+                eventTime = Date.now();
+                inputHandler(event);
+            } 
+        }
+        else {
+            lastEvent = event.type;
+            eventTime = Date.now();
+            inputHandler(event); 
+        }
+    });
+
+   
+    // Mouse
+    ///////////////////////////////////////
+    renderer.canvas.addEventListener("mousedown", function(event) {
+
+        if (lastEvent === "touchstart") {
+
+            if ( (Date.now() - eventTime) > inputDeviceSwapTime ) {
+                lastEvent = event.type;
+                eventTime = Date.now();
+                inputHandler(event);
+            } 
+        }
+        else {
+            lastEvent = event.type;
+            eventTime = Date.now();
+            inputHandler(event); 
+        }
+    });
+
+
+    
+    // Input Helper Functions
+    ///////////////////////////////////////
+
+    // The bulk of the handler for touch or mouse event
+    function inputHandler(event) {
+        let clickLocation;
+        let enemy, player = game.player();
+        let i;
+        
+        // Touch input
+        if (event.type === "touchstart") {
+            clickLocation = getRelativeEventCoords(event.changedTouches[0]);
+        }
+
+        // Mouse click input
+        else if (event.type === "mousedown") {
+            clickLocation = getRelativeEventCoords(event);
+        }
+
+        // Only register the input if the game is running
+        if (!game.gameOver() && player && 
+            clickLocation.y >= clickZoneY) {
+
+            clickBox.x = clickLocation.x-5;
+            clickBox.y = clickLocation.y-5;
+
+            // Did the user click on an enemy?
+            for (i = 0; i < game.enemies().length; i++) {
+                enemy = game.enemies()[i];
+
+                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+
+                    // If the clicked enemy is fake, lose life
+                    if (enemy.isFake) {
+                        enemy.sprite = resources.spr_bigX();
+                        player.loseLife();
+                    }
+
+                    // It's real! Gain a life
+                    else {
+                        enemy.sprite = resources.spr_explosion();
+                        player.addLife();
+                    }
+
+                    // Toggle event flag
+                    game.setInputEventFired();
+
+                    // Unpause the game
+                    if (!game.accelerating())
+                        game.toggleAcceleration();
+                    
+                    // If the game is already unpaused, buffer the input
+                    else if (!game.inputBuffered())
+                        game.toggleInputBuffer();
+                }
+                
+            }
+        }
+    }
 
     // Get left offset of element
     function getOffsetLeft(elem) {
@@ -1203,20 +1335,35 @@
     }
 
     ///////////////////////////////////////
+    // Main Logic
+    ///////////////////////////////////////
+
+    // Start the game when the button is clicked
+    document.querySelector("#start_button").addEventListener("click", 
+    function() {
+        game.start(); 
+    });
+
+    
+    /*//////////////////////////////////////
     // Click input
     ///////////////////////////////////////
 
     function clickStart(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        console.log("click");
+
         let clickLocation = getRelativeEventCoords(e);
         let player = game.player();
         let i;
         let enemy, newX = -1, newY = -1;
-    
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        
 
         // Only register the input if the game is running
-        if (!game.gameOver() && player && clickLocation.y >= clickZoneY) {
+        if (!game.gameOver() && player && 
+            clickLocation.y >= clickZoneY) {
 
             clickBox.x = clickLocation.x-5;
             clickBox.y = clickLocation.y-5;
@@ -1254,90 +1401,116 @@
             /* Move the player
             
             // Missed?
-            if (newX !== -1 || newY !== -1) {
-                player.move(newX, GAME_FIELD_HEIGHT-60);
+            //if (newX !== -1 || newY !== -1) {
+            //    player.move(newX, GAME_FIELD_HEIGHT-60);
 
                 // Toggle event flag
-                game.setInputEventFired();
+            //    game.setInputEventFired();
 
                 // Unpause the game
-                if (!game.accelerating())
-                    game.toggleAcceleration();
+            //    if (!game.accelerating())
+            //        game.toggleAcceleration();
                 
                 // If the game is already unpaused, buffer the input
-                else if (!game.inputBuffered())
-                    game.toggleInputBuffer();
-            }*/
+            //    else if (!game.inputBuffered())
+            //        game.toggleInputBuffer();
+            //}
             
         }
     }
     
-    renderer.canvas.addEventListener("click", clickStart);
+    renderer.canvas.addEventListener("mousedown", clickStart);
 
     ///////////////////////////////////////
     // Touch input
     //////////////////////////////////////
     
     function touchStart(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        console.log("touch");
+
         let touches = e.changedTouches;
         let enemy;
         let touchLocation;
         let player = game.player();
-        let i;
-    
-        e.preventDefault();
-        e.stopImmediatePropagation();
+        let i, j;
 
-        touchLocation = getRelativeEventCoords(touches[touches.length-1]);
+        //touchLocation = getRelativeEventCoords(touches[touches.length-1]);
 
         // Only register the input if the game is running
-        for (i = touches.length - 1; i >= 0 && !game.gameOver() && player; i--) {
+        if (!game.gameOver() && player) {
 
-            touchLocation = getRelativeEventCoords(touches[i]);
+            for (i = touches.length - 1; i >= 0; i--) {
 
-            clickBox.x = touchLocation.x-5;
-            clickBox.y = touchLocation.y-5;
+                touchLocation = getRelativeEventCoords(touches[i]);
 
-            // Did the user click on an enemy?
-            for (i = 0; i < game.enemies().length && touchLocation.y >= clickZoneY; i++) {
+                clickBox.x = touchLocation.x-5;
+                clickBox.y = touchLocation.y-5;
+                
 
-                enemy = game.enemies()[i];
+                // Did the user click on an enemy?
+                for (j = 0; j < game.enemies().length && touchLocation.y >= clickZoneY; j++) {
 
-                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+                    enemy = game.enemies()[j];
 
-                    if (enemy.isFake) {
-                        enemy.sprite = resources.spr_bigX();
-                        player.loseLife();
+                    if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+
+                        if (enemy.isFake) {
+                            enemy.sprite = resources.spr_bigX();
+                            player.loseLife();
+                        }
+                        else {
+                            enemy.sprite = resources.spr_explosion();
+                            player.addLife();
+                        }
+                        // Toggle event flag
+                        game.setInputEventFired();
+
+                        // Unpause the game
+                        if (!game.accelerating())
+                            game.toggleAcceleration();
+                        
+                        // If the game is already unpaused, buffer the input
+                        else if (!game.inputBuffered())
+                            game.toggleInputBuffer();
                     }
-                    else {
-                        enemy.sprite = resources.spr_explosion();
-                        player.addLife();
-                    }
-                    // Toggle event flag
-                    game.setInputEventFired();
-
-                    // Unpause the game
-                    if (!game.accelerating())
-                        game.toggleAcceleration();
-                    
-                    // If the game is already unpaused, buffer the input
-                    else if (!game.inputBuffered())
-                        game.toggleInputBuffer();
+                
                 }
-            
             }
         }
     }
 
-    renderer.canvas.addEventListener("touchstart", touchStart);
+    renderer.canvas.addEventListener("touchstart", touchStart);*/
 
+    /*/////////////////////////////////////
+    // Keyboard input
     ///////////////////////////////////////
-    // Main Logic
-    ///////////////////////////////////////
+    let keybinds = {
+        // num keys 1-4
+        49: 0,
+        50: 1,
+        51: 2,
+        52: 3
+    };
 
-    // Start the game when the button is clicked
-    document.querySelector("#start_button").addEventListener("click", function() { game.start(); });
+    function keyDown(e) {
+        // which or keyCode depends on browser support
+        let key = e.which || e.keyCode;
 
-    
-    
+        // Move player to lane according to key pressed
+        if(keybinds[key] !== undefined && game.player() && !game.gameOver()) {
+            e.preventDefault();
+            
+            game.player().move(keybinds[key]);
+
+            if (!game.accelerating())
+                game.toggleAcceleration();
+            else if (!game.inputBuffered())
+                game.toggleInputBuffer();
+        }
+    }
+
+    document.body.addEventListener('keydown', keyDown);*/
 })();
