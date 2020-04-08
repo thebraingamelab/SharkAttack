@@ -53,6 +53,18 @@ module.exports = function(grunt) {
           tasks: ['default']
         },
 
+        cssmin: {
+          target: {
+            files: [{
+              expand: true,
+              cwd: './',
+              src: ['*.css', '!*.min.css'],
+              dest: './',
+              ext: '.min.css'
+            }]
+          }
+        },
+
         imagemin: {
           static: {
               options: {
@@ -71,7 +83,9 @@ module.exports = function(grunt) {
       },
 
       clean: {
-        build: ['build/*.js']
+        build: ['build/*.js'],
+        css: ['./style.min.css'],
+        sprites: ['build/sprites/*']
       }
     });
 
@@ -82,8 +96,9 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-jshint');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-concat');
+    grunt.loadNpmTasks('grunt-contrib-cssmin');
 
     // Run default tasks
-    //grunt.registerTask('default', ['jshint', 'clean', 'imagemin', 'concat', 'terser']);
-    grunt.registerTask('default', ['jshint', 'clean', 'concat', 'terser']);
+    grunt.registerTask('default', ['jshint', 'clean', 'imagemin', 'concat', 'terser', 'cssmin']);
+    //grunt.registerTask('default', ['jshint', 'clean', 'concat', 'terser', 'cssmin']);
 };

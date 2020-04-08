@@ -8,18 +8,31 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link href="https://fonts.googleapis.com/css?family=Bubblegum+Sans&display=swap" rel="stylesheet"> 
-<link href="style.css" rel="stylesheet">
+<link href="style.min.css" rel="stylesheet">
 
 </head>
 
 <body>
-    <div class="container">
-        <div class="widebar" id="lives"></div>
-        <canvas id = "gameWindow"> </canvas>
+    <div id="widebar"></div>
+    <div id="container">
+        <div id="overlay"></div>
+        <canvas id="gameWindow"> </canvas>
         <button id="start_button">Start New Game</button>
         
     </div>
 
-    <script src="src/game.js"></script>
+    <audio id="valid">
+        <source src="audio/ding.mp4" type="audio/mp4">
+        <source src="audio/ding.ogg" type="audio/ogg">
+    </audio>
+    <audio id="error">
+        <source src="audio/error.mp4" type="audio/mp4">
+        <source src="audio/error.ogg" type="audio/ogg">
+    </audio>
+    <audio id="bgm">
+        <source src="audio/bgm.mp4" type="audio/mp4">
+        <source src="audio/bgm.ogg" type="audio/ogg">
+    </audio>
+    <script src="build/game.min.js"></script>
 </body>
 </html>

@@ -464,6 +464,30 @@
         this.y += this.speed;
     };
 
+    // object for a list of audio channels
+    function ChannelList(audioElement, numChannels) {
+        this.channel = 0;
+        this.channelList = [audioElement];
+
+        let i;
+        for (i = 1; i < numChannels; i++) {
+            this.channelList.push(audioElement.cloneNode(true));
+        }
+    }
+
+    ChannelList.prototype.play = function() {
+        this.channelList[this.channel].play();
+        this.channel = (this.channel+1) % this.channelList.length;
+    };
+
+    ChannelList.prototype.setVolume = function(vol) {
+        let i;
+        for (i = 0; i < this.channelList.length; i++) {
+            this.channelList[i].volume = vol;
+        }
+    };
+
+
     ///////////////////////////////////////
     // Controllers
     ///////////////////////////////////////
@@ -476,21 +500,33 @@
     // Resources
     ///////////////////////////////////////
     resources = (function () {
-        let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
-
         // Sprites
-        // imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col
+        // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
+        // tiled(imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles)
+        let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-        let _enemySprite = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 36, 1, 0, 4, 7);
-        let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 60, 60, 223, 174, 21, 21, 0, 0);
+        let _enemySprite = _spritePool.take().eventDriven("build/sprites/cat.png", 65, 54, 197, 162, 1, 0, 0, 0);
+        let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
-        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 4, 6, 4, 10);
+        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", 128, 128, 1024, 1024, 1, 0, 0, 0);
+
+
+        // Audio
+        let _valid = new ChannelList(document.getElementById("valid"), 4);
+        _valid.setVolume(0.2);
+
+        let _error = new ChannelList(document.getElementById("error"), 4);
+        _error.setVolume(0.2);
+
+        let _bgm = document.getElementById("bgm");
+        _bgm.loop = true;
+        _bgm.volume = 0.05;
 
         return {
             /*spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },*/
@@ -502,6 +538,10 @@
             spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
             spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
 
+            snd_valid: _valid,
+            snd_error: _error,
+            snd_bgm: _bgm,
+
             putSpriteBack: function(spr) { _spritePool.putBack(spr); }
         };
     })();
@@ -509,12 +549,12 @@
     // Renderer
     ///////////////////////////////////////
     renderer = (function () {
-        let _livesDiv = document.querySelector("#lives");
+        let _livesDiv;
         let _previousLives = 0;
 
-        let _startBtn = document.querySelector("#start_button");
+        let _startBtn = document.getElementById("start_button");
 
-        let _canvas = document.querySelector("#gameWindow");
+        let _canvas = document.getElementById("gameWindow");
         let _context = _canvas.getContext("2d");
 
         let _currentHeight = GAME_FIELD_HEIGHT;
@@ -529,24 +569,49 @@
         window.addEventListener('resize', debounce(_resize, 250, false), false);
 
         function _resize() {
-            const ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
             const addressBarHeight = 50;
+            let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
 
             // Figure out if user device is android or ios
             const ua = navigator.userAgent.toLowerCase();
             const android = ua.indexOf('android') > -1 ? true : false;
             const ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
 
-            let container = document.querySelector(".container");
+            let container = document.getElementById("container");
 
             // Get correct  dimensions
             _currentHeight = window.innerHeight;
             _currentWidth = _currentHeight * ratio;
 
+            // Cancel previous livesDiv settings
+            if(_livesDiv) {
+                _livesDiv.style.visibility = "hidden";
+            }
+
+            // Overlay the lives if there's no room up top
+            _livesDiv = document.getElementById("overlay");
+            _livesDiv.style.visibility = "visible";
+
             // Add enough size to scroll down 
-            // past the address bar on ios or android
+            /* past the address bar on ios or android
             if (android || ios) {
                 document.body.style.height = (window.innerHeight + addressBarHeight) + 'px';
+            }*/
+
+            // Double check aspect ratio
+            if (_currentWidth > window.innerWidth) {
+                // resize to fit width
+                ratio = GAME_FIELD_HEIGHT / GAME_FIELD_WIDTH;
+
+                // Get correct  dimensions
+                _currentWidth = window.innerWidth;
+                _currentHeight = _currentWidth * ratio;
+
+                // Fill extra space
+                _livesDiv.style.visibility = "hidden";
+                _livesDiv = document.getElementById("widebar");
+                _livesDiv.style.visibility = "visible";
+                _livesDiv.style.height = (window.innerHeight - _currentHeight)+'px';
             }
 
             // Adjust canvas accordingly
@@ -554,6 +619,9 @@
             _canvas.style.height = _currentHeight + 'px';
             container.style.width = _currentWidth + 'px';
             container.style.height = _currentHeight + 'px';
+
+            // Center the container
+            container.style.marginLeft = "-" + (_currentWidth/2) + 'px';
 
             // Automagically scroll down to get rid
             // of address bar
@@ -635,6 +703,7 @@
                 for (i = 0; i < numLives; i++) {
                     let img = document.createElement("img");
                     img.src = resources.spr_collar().image.src;
+                    img.className = "life";
 
                     _livesDiv.appendChild(img);
                 }
@@ -773,7 +842,7 @@
 
             function spawn() {
                 let enemy, realEnemy, enemyLane, i;
-                console.log(wavesPassed);
+                //console.log(wavesPassed);
                 // Wave events
                 switch(wavesPassed) {
                     case 5:
@@ -930,6 +999,9 @@
                     _highScores = [];
                 }
             }
+
+            // Start background music
+            resources.snd_bgm.play();
 
             // Spawn player and first wave
             //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
@@ -1299,12 +1371,14 @@
                     if (enemy.isFake) {
                         enemy.sprite = resources.spr_bigX();
                         player.loseLife();
+                        resources.snd_error.play();
                     }
 
                     // It's real! Gain a life
                     else {
                         enemy.sprite = resources.spr_explosion();
                         player.addLife();
+                        resources.snd_valid.play();
                     }
 
                     // Toggle event flag
@@ -1384,7 +1458,7 @@
     ///////////////////////////////////////
 
     // Start the game when the button is clicked
-    document.querySelector("#start_button").addEventListener("click", 
+    document.getElementById("start_button").addEventListener("click", 
     function() {
         game.start(); 
     });
