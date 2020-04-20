@@ -23,14 +23,49 @@ body {
 
 .life {
     max-height: 100%;
-    max-width: 33%;
+    max-width: 30%;
     position: relative;
+    float: right;
+}
+
+#controls {
+    height: 100%;
+    width: 24px;
+    display: inline-block;
+}
+
+.slider {
+    transition: 1s;
+    position: absolute;
+    top: 0;
+    width: 0;
+    visibility: hidden;
+}
+
+#overlay-volume {
+    display: none;
+}
+#overlay-volume:checked ~ .slider {
+    transition: 1s;
+    width: 50%;
+    visibility: visible;
+}
+
+#widebar-volume {
+    display: none;
+}
+
+#widebar-volume:checked ~ input {
+    transition: 1s;
+    width: 50%;
+    visibility: visible;
 }
 
 #widebar {
-    visibility: hidden;
-    display: flex;
-    flex-direction: row;
+    display: none;
+    /*visibility: hidden;
+    /*display: flex;
+    flex-direction: row;*/
     justify-content: center;
     align-items: center;
     width: 100%;
@@ -38,14 +73,15 @@ body {
 }
 
 #overlay {
-    visibility: hidden;
-    display: flex;
-    flex-direction: row;
+    display: none;
+    /*visibility: hidden;
+    /*display: flex;
+    flex-direction: row;*/
     position: absolute;
     top: 0;
     left: 0;
     height: 8%;
-    width: 40%;
+    width: 100%;
     z-index: 1;
     background-color: rgba(0,0,0,0.5); /*dim the background*/
   }
@@ -70,4 +106,23 @@ canvas {
     z-index: 1;
     border-width: 1px;
     border-color: rgb(247, 245, 199)
+}
+
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    color: white;
+    cursor: pointer;
+    float: left;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -moz-font-feature-settings: 'liga';
+    -moz-osx-font-smoothing: grayscale;
 }

@@ -466,6 +466,7 @@
 
     // object for a list of audio channels
     function ChannelList(audioElement, numChannels) {
+        this.muted = false;
         this.channel = 0;
         this.channelList = [audioElement];
 
@@ -476,8 +477,10 @@
     }
 
     ChannelList.prototype.play = function() {
-        this.channelList[this.channel].play();
-        this.channel = (this.channel+1) % this.channelList.length;
+        if (!this.muted) {
+            this.channelList[this.channel].play();
+            this.channel = (this.channel+1) % this.channelList.length;
+        }
     };
 
     ChannelList.prototype.setVolume = function(vol) {
@@ -485,6 +488,14 @@
         for (i = 0; i < this.channelList.length; i++) {
             this.channelList[i].volume = vol;
         }
+    };
+
+    ChannelList.prototype.mute = function() {
+        this.muted = true;
+    };
+
+    ChannelList.prototype.unmute = function() {
+        this.muted = false;
     };
 
 
@@ -508,39 +519,57 @@
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
         let _enemySprite = _spritePool.take().eventDriven("build/sprites/cat.png", 65, 54, 197, 162, 1, 0, 0, 0);
-        let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
+        //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
         let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", 128, 128, 1024, 1024, 1, 0, 0, 0);
-
+        let _check = _spritePool.take().eventDriven("build/sprites/check.png", 75, 75, 775, 552, 1, 0, 0, 0);
 
         // Audio
         let _valid = new ChannelList(document.getElementById("valid"), 4);
-        _valid.setVolume(0.2);
+        //_valid.setVolume(0.2);
 
         let _error = new ChannelList(document.getElementById("error"), 4);
-        _error.setVolume(0.2);
+        //_error.setVolume(0.2);
 
         let _bgm = document.getElementById("bgm");
         _bgm.loop = true;
-        _bgm.volume = 0.05;
+        //_bgm.volume = 0.05;
 
         return {
-            /*spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },*/
+            //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
             spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
-            spr_explosion: function() { return _spritePool.take().copyAttributes(_playerExplode); },
-            /*spr_leafPile: function() { return _spritePool.take().copyAttributes(_pileOfLeaves); },*/
+            //spr_explosion: function() { return _spritePool.take().copyAttributes(_playerExplode); },
+            //spr_leafPile: function() { return _spritePool.take().copyAttributes(_pileOfLeaves); },
             spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
             spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
             spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
             spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
+            spr_check: function() { return _spritePool.take().copyAttributes(_check); },
 
             snd_valid: _valid,
             snd_error: _error,
             snd_bgm: _bgm,
+
+            setMasterVolume: function(vol) {
+                if (vol <= 0) {
+                    _valid.mute();
+                    _error.mute();
+                    _bgm.pause();
+                }
+                else {
+                    _valid.unmute();
+                    _error.unmute();
+                    _bgm.play();
+
+                    _valid.setVolume(vol);
+                    _error.setVolume(vol);
+                    _bgm.volume = vol;
+                }
+            },
 
             putSpriteBack: function(spr) { _spritePool.putBack(spr); }
         };
@@ -549,6 +578,11 @@
     // Renderer
     ///////////////////////////////////////
     renderer = (function () {
+        // Figure out if user device is android or ios
+        const _ua = navigator.userAgent.toLowerCase();
+        const _android = _ua.indexOf('android') > -1;
+        const _ios = /ipad|iphone|ipod/i.test(_ua) && !window.MSStream;
+
         let _livesDiv;
         let _previousLives = 0;
 
@@ -565,18 +599,12 @@
         _canvas.height = GAME_FIELD_HEIGHT;
 
         // Resize it according to device
-        _resize();
+        window.addEventListener('load', _resize, false);
         window.addEventListener('resize', debounce(_resize, 250, false), false);
 
         function _resize() {
             const addressBarHeight = 50;
             let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
-
-            // Figure out if user device is android or ios
-            const ua = navigator.userAgent.toLowerCase();
-            const android = ua.indexOf('android') > -1 ? true : false;
-            const ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
-
             let container = document.getElementById("container");
 
             // Get correct  dimensions
@@ -585,18 +613,18 @@
 
             // Cancel previous livesDiv settings
             if(_livesDiv) {
-                _livesDiv.style.visibility = "hidden";
+                _livesDiv.style.display = "none";
             }
 
             // Overlay the lives if there's no room up top
             _livesDiv = document.getElementById("overlay");
-            _livesDiv.style.visibility = "visible";
+            _livesDiv.style.display = "initial";
 
             // Add enough size to scroll down 
-            /* past the address bar on ios or android
-            if (android || ios) {
+            // past the address bar on ios or android
+            if (_android || _ios) {
                 document.body.style.height = (window.innerHeight + addressBarHeight) + 'px';
-            }*/
+            }
 
             // Double check aspect ratio
             if (_currentWidth > window.innerWidth) {
@@ -608,9 +636,9 @@
                 _currentHeight = _currentWidth * ratio;
 
                 // Fill extra space
-                _livesDiv.style.visibility = "hidden";
+                _livesDiv.style.display = "none";
                 _livesDiv = document.getElementById("widebar");
-                _livesDiv.style.visibility = "visible";
+                _livesDiv.style.display = "initial";
                 _livesDiv.style.height = (window.innerHeight - _currentHeight)+'px';
             }
 
@@ -628,6 +656,9 @@
             window.setTimeout(function() {
                     window.scrollTo(0,1);
             }, 1);
+
+            // Update UI elements
+            _updateUI(true);
         }
 
         // Draw a sprite to the context
@@ -671,8 +702,8 @@
             };
         })();
 
-        function _updateUI() {
-            let numLives = game.player().life;
+        function _updateUI(forceUpdate=false) {
+            let numLives;
             let i;
 
             if (!game.started()) {
@@ -682,30 +713,34 @@
                 // Make start button disappear
                 _startBtn.style.display = "block";
             }
-            else if (game.started()) {
+            else {
                 // Show lives
                 //_livesDiv.style.display = "flex";
 
                 // Make start button disappear
                 _startBtn.style.display = "none";
-            }
 
-            // Update Player Lives
-            if( _previousLives !== numLives ) {
-                _previousLives = numLives;
+                numLives = game.player().life;
+                // Update Player Lives
+                if( _previousLives !== numLives || forceUpdate) {
+                    _previousLives = numLives;
 
 
-                while( _livesDiv.hasChildNodes() ) {
-                    _livesDiv.removeChild(_livesDiv.firstChild);
-                }
+                    for (i = 0; i < _livesDiv.childNodes.length; i++) {
+                        if (_livesDiv.childNodes[i] instanceof Image) {
+                            _livesDiv.removeChild(_livesDiv.childNodes[i]);
+                            i--;
+                        }
+                    }
 
-                // Add an image for each life
-                for (i = 0; i < numLives; i++) {
-                    let img = document.createElement("img");
-                    img.src = resources.spr_collar().image.src;
-                    img.className = "life";
+                    // Add an image for each life
+                    for (i = 0; i < numLives; i++) {
+                        let img = document.createElement("img");
+                        img.src = resources.spr_collar().image.src;
+                        img.className = "life";
 
-                    _livesDiv.appendChild(img);
+                        _livesDiv.appendChild(img);
+                    }
                 }
             }
         }
@@ -732,15 +767,17 @@
                 //if (clickBox !== null)
                 //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
 
-                if (game.accelerating() || entity instanceof TempEntity)
+                if (game.accelerating() || entity instanceof TempEntity) {
                     entity.sprite.update(dt);
+                }
 
-                if (entity.draw && entity instanceof TempEntity)
+                if (entity.draw && entity instanceof TempEntity) {
                     _drawSprite(entity.sprite, entity.x, entity.y);
+                }
 
-                else if (entity.draw)
-                _drawSprite(entity.sprite, entity.x-(entity.width/4), entity.y-(entity.height/2));
-                
+                else if (entity.draw) {
+                    _drawSprite(entity.sprite, entity.x-(entity.width/4), entity.y-(entity.height/2));
+                }
             }
         }
 
@@ -749,6 +786,8 @@
             GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
             GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
             canvas: _canvas,
+
+            isIOS: function() { return _ios; },
             currentWidth: function () { return _currentWidth; }
         };
 
@@ -1098,8 +1137,8 @@
 
             // Stop game if game over is reached
             if (_gameOver) {
-                _started = false;
                 renderer.render(dt);
+                _started = false;
                 _gameOverAnimation = window.requestAnimationFrame(_updateFunc);
                 return;
             }
@@ -1296,6 +1335,7 @@
     // Touch
     ///////////////////////////////////////
     renderer.canvas.addEventListener("touchstart", function(event) {
+        event.preventDefault();
 
         if (lastEvent === "mousedown") {
 
@@ -1316,6 +1356,7 @@
     // Mouse
     ///////////////////////////////////////
     renderer.canvas.addEventListener("mousedown", function(event) {
+        event.preventDefault();
 
         if (lastEvent === "touchstart") {
 
@@ -1339,6 +1380,8 @@
 
     // The bulk of the handler for touch or mouse event
     function inputHandler(event) {
+        if (!game.started()) return;
+
         let clickLocation;
         let clickZone = game.clickZone;
         let enemy, enemies = game.frontRowEnemies(), player = game.player();
@@ -1376,7 +1419,7 @@
 
                     // It's real! Gain a life
                     else {
-                        enemy.sprite = resources.spr_explosion();
+                        enemy.sprite = resources.spr_check();
                         player.addLife();
                         resources.snd_valid.play();
                     }
@@ -1456,6 +1499,80 @@
     ///////////////////////////////////////
     // Main Logic
     ///////////////////////////////////////
+
+    // Configure volume
+    let overlaySlider = document.querySelector("#overlay-volume~.slider");
+    let widebarSlider = document.querySelector("#widebar-volume~.slider");
+    let overlayLabel = document.querySelector("#overlay-volume+label>i");
+    let widebarLabel = document.querySelector("#widebar-volume+label>i");
+
+    document.getElementById("overlay-volume").checked = false;
+    document.getElementById("widebar-volume").checked = false;
+
+    function volHandler(label, slider) {
+        // Convert slider value to a number (from a string)
+        let vol = slider.value;
+        vol = Number(vol);
+
+        // Since IOS doesn't allow volume control,
+        // simply go between mute and unmute
+        if (renderer.isIOS()) {
+            if (vol <= 0) {
+                vol = 1;
+                slider.value = "1";
+            }
+            else {
+                vol = 0;
+                slider.value = "0";
+            }
+        }
+
+        // Adjust the volume icon accordingly
+        if (vol <= 0) {
+            label.innerHTML = "volume_mute";
+        }
+        else {
+            label.innerHTML = "volume_up";
+        }
+
+        // Set the volume of all sounds
+        resources.setMasterVolume(vol);
+    }
+
+    // Mouse events
+    overlaySlider.addEventListener("mouseup", function(e) {
+        volHandler(overlayLabel, overlaySlider);
+    });
+    widebarSlider.addEventListener("mouseup", function(e) {
+        volHandler(widebarLabel, widebarSlider);
+    });
+
+    // Touch events
+    if (renderer.isIOS()) {
+        // Don't display the slider on IOS
+        overlaySlider.style.visibility = "hidden";
+        widebarSlider.style.visibility = "hidden";
+
+        overlayLabel.addEventListener("touchend", function(e) {
+            e.preventDefault();
+            volHandler(overlayLabel, overlaySlider);
+        });
+        widebarLabel.addEventListener("touchend", function(e) {
+            e.preventDefault();
+            volHandler(widebarLabel, widebarSlider);
+        });
+    }
+    else {
+        // Else proceed normally
+        overlaySlider.addEventListener("touchend", function(e) {
+            e.preventDefault();
+            volHandler(overlayLabel, overlaySlider);
+        });
+        widebarSlider.addEventListener("touchend", function(e) {
+            e.preventDefault();
+            volHandler(widebarLabel, widebarSlider);
+        });
+    }
 
     // Start the game when the button is clicked
     document.getElementById("start_button").addEventListener("click", 
