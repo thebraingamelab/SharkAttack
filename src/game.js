@@ -48,7 +48,7 @@
             let callNow = immediate && !timeout;
 
             clearTimeout(timeout);
-            timeout = setTimeout(later, delay);
+            timeout = window.setTimeout(later, delay);
 
             if (callNow) 
                 func.apply(context, args);
@@ -57,8 +57,8 @@
 
 
     // Cloneable Pool
-    function CloneablePool(cloneable) {
-        this.template = cloneable;
+    function CloneablePool(template) {
+        this.template = template;
 
         this.pool = [];
     }
@@ -352,16 +352,6 @@
         return this.hitbox;
     };
 
-    // 1px line for collision
-    Entity.prototype.collisionLine = function () {
-        this.hitbox.x = this.x - this.width/2;
-        this.hitbox.y = this.y - this.height/2;
-        this.hitbox.width = this.width;
-        this.hitbox.height = 1;
-
-        return this.hitbox;
-    };
-
     // Check collisions
     Entity.prototype.isCollidingWith = function(entity2) {
         let myHitbox = this.collisionRect();
@@ -390,7 +380,6 @@
     function Player(x, y, sprite) {
         Entity.call(this, x, y, 40, 40, sprite);
 
-        this.rangeOfMovement = 4;
         this.maxLife = 3;
         this.life = this.maxLife;
     }
@@ -402,7 +391,7 @@
     Player.prototype.update = function (dt) {
         Entity.prototype.update.call(this, dt);
 
-        game.addScore(1);
+        //game.addScore(1);
     };
 
     // Increase life amount
@@ -464,38 +453,89 @@
         this.y += this.speed;
     };
 
-    // object for a list of audio channels
-    function ChannelList(audioElement, numChannels) {
-        this.muted = false;
-        this.channel = 0;
-        this.channelList = [audioElement];
 
-        let i;
-        for (i = 1; i < numChannels; i++) {
-            this.channelList.push(audioElement.cloneNode(true));
+    // Sound object
+    function Sound(filePath, audioContext, gainNode, loop=false) {
+        let my = this;
+        let testAudio;
+        let xhr;
+        
+        // Initialize fields (constructor stuff)
+        this.buffer = null;
+        this.audioContext = audioContext;
+        this.gainNode = gainNode;
+        this.loop = loop;
+
+        // Check for file type compatibility
+        testAudio = document.createElement("audio");
+
+        if (testAudio.canPlayType) {
+
+            // Can we use a .mp4 file?
+            if ( !!testAudio.canPlayType && testAudio.canPlayType('audio/mp4') !== "" ) {
+                filePath += ".mp4";
+            }
+
+            // If we can't use .mp4, can we use a .ogg file?
+            else if ( !!testAudio.canPlayType && testAudio.canPlayType('audio/ogg; codecs="vorbis"') !== "" ){
+                filePath += ".ogg";
+            }
+
+            // Uh-oh! Neither are supported :(
+            else {
+                console.log("Error: MP4 and OGG files are unsupported on this device.");
+                return;
+            }
         }
+
+        // Fetch the file
+        xhr = new XMLHttpRequest();
+        xhr.open('GET', encodeURI(filePath), true);
+        xhr.responseType = 'arraybuffer';
+
+        // Oopsie doopsie, couldn't fetch the file
+        xhr.addEventListener("error", function() {
+            console.log('Error loading from server: ' + filePath);
+        }, false);
+
+        // On successful load, decode the audio data
+        xhr.addEventListener("load", function() {
+
+            audioContext.decodeAudioData(xhr.response,
+
+                // Success
+                function(audioBuffer) {
+                    my.buffer = audioBuffer;
+                },
+
+                // Error
+                function(e) {
+                    console.log("Error decoding audio data: " + e.err);
+                });
+        }, false);
+
+        xhr.send();
     }
 
-    ChannelList.prototype.play = function() {
-        if (!this.muted) {
-            this.channelList[this.channel].play();
-            this.channel = (this.channel+1) % this.channelList.length;
+    // Play function, for playing the sound
+    Sound.prototype.play = function() {
+        let thisObject = this;
+
+        // Play the sound only if it's been decoded already
+        if (this.buffer) {
+            let bufferSource = this.audioContext.createBufferSource();
+            bufferSource.buffer = this.buffer;
+            bufferSource.connect(this.gainNode).connect(this.audioContext.destination);
+            bufferSource.start(0);
+            bufferSource.loop = this.loop;
         }
-    };
 
-    ChannelList.prototype.setVolume = function(vol) {
-        let i;
-        for (i = 0; i < this.channelList.length; i++) {
-            this.channelList[i].volume = vol;
+        // If it hasn't been decoded yet, check every 50ms to see if it's ready
+        else {
+            window.setTimeout(function() {
+                thisObject.play();
+            }, 50);
         }
-    };
-
-    ChannelList.prototype.mute = function() {
-        this.muted = true;
-    };
-
-    ChannelList.prototype.unmute = function() {
-        this.muted = false;
     };
 
 
@@ -523,21 +563,40 @@
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
-        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
+        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", 128, 128, 1024, 1024, 1, 0, 0, 0);
         let _check = _spritePool.take().eventDriven("build/sprites/check.png", 75, 75, 775, 552, 1, 0, 0, 0);
 
         // Audio
-        let _valid = new ChannelList(document.getElementById("valid"), 4);
-        //_valid.setVolume(0.2);
+        let _audioContext;
 
-        let _error = new ChannelList(document.getElementById("error"), 4);
-        //_error.setVolume(0.2);
+        let _musicGainNode;
+        let _sfxGainNode;
 
-        let _bgm = document.getElementById("bgm");
-        _bgm.loop = true;
-        //_bgm.volume = 0.05;
+        let _masterVolume, _musicVolume, _sfxVolume;
+
+        // Context
+        let AudioContext = window.AudioContext || window.webkitAudioContext;
+        _audioContext = new AudioContext();
+        
+        // Volume control (1 = 100%)
+        _masterVolume = 1;
+        _musicVolume = 0.1;
+        _sfxVolume = 0.15;
+
+        // Music volume
+        _musicGainNode = _audioContext.createGain();
+        _musicGainNode.gain.value = _musicVolume;
+
+        // Sound Effects volume
+        _sfxGainNode = _audioContext.createGain();
+        _sfxGainNode.gain.value = _sfxVolume;
+
+        // SFX
+        let _valid = new Sound("audio/ding", _audioContext, _sfxGainNode);
+        let _error = new Sound("audio/error", _audioContext, _sfxGainNode);
+        let _bgm = new Sound("audio/bgm", _audioContext, _musicGainNode, true);
 
         return {
             //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
@@ -554,20 +613,46 @@
             snd_error: _error,
             snd_bgm: _bgm,
 
-            setMasterVolume: function(vol) {
-                if (vol <= 0) {
-                    _valid.mute();
-                    _error.mute();
-                    _bgm.pause();
-                }
-                else {
-                    _valid.unmute();
-                    _error.unmute();
-                    _bgm.play();
+            initVolume: function() {
+                let lastVol;
 
-                    _valid.setVolume(vol);
-                    _error.setVolume(vol);
-                    _bgm.volume = vol;
+                // Retrieve previous session's volume
+                if (typeof(Storage) !== "undefined") {
+                    try {
+                        lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
+                    }
+                    catch(e) {
+                        console.log("Previous volume data is corrupted or missing.");
+                    }
+
+
+                    // Restore volume if loaded successfully
+                    if (lastVol || lastVol === 0) {
+                        _masterVolume = lastVol;
+                        this.setMasterVolume(lastVol);
+
+                        return lastVol;
+                    }
+                }
+
+                // Failed. Return null
+                return null;
+            },
+
+            setMasterVolume: function(vol) {
+                _masterVolume = vol;
+                
+                _sfxGainNode.gain.value = _sfxVolume * vol;
+                _musicGainNode.gain.value = _musicVolume * vol;
+
+                // Save the latest volume data
+                if (typeof(Storage) !== "undefined") {
+                    try {
+                        localStorage.setItem('nback_masterVolume', JSON.stringify(_masterVolume));
+                    }
+                    catch (e) {
+                        console.log("Error: an issue occurred when saving volume data.");
+                    }
                 }
             },
 
@@ -607,7 +692,7 @@
             let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
             let container = document.getElementById("container");
 
-            // Get correct  dimensions
+            // Get correct dimensions
             _currentHeight = window.innerHeight;
             _currentWidth = _currentHeight * ratio;
 
@@ -695,10 +780,7 @@
                 _drawSprite(bgImg, 0, y);
 
                 if (game.accelerating() && !game.gameOver())
-                    y += movingSpeed;
-
-                if (y >= GAME_FIELD_HEIGHT)
-                    y = 0;
+                    y = (y+movingSpeed) % GAME_FIELD_HEIGHT;
             };
         })();
 
@@ -783,8 +865,8 @@
 
         return {
             render: _render,
-            GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
-            GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
+            //GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
+            //GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
             canvas: _canvas,
 
             isIOS: function() { return _ios; },
@@ -813,12 +895,10 @@
         
         let _accelerating;
         let _inputBuffered, _inputEventFired;
+        let _inputEnabled;
 
         let _started = false;
         let _gameOver;
-
-        let _tutorialEnabled = true;
-        let _tutorialLanes;
 
         let _updateFunc;
         let _gameOverAnimation;
@@ -864,8 +944,13 @@
         let _waves = (function() {
             let numClones;
             let invisTurningPoint; 
-            let wavesPassed;
             let cloneList;
+
+            let wavesPassed;
+            let wavesSpawned;
+
+            let tutorialEvents;
+            let tutorialCounter;
 
             function updateWavesPassed() {
                 wavesPassed++;
@@ -873,20 +958,36 @@
 
             function init() {
                 numClones = 0;
-                wavesPassed = 0;
                 cloneList = [];
+
+                wavesPassed = 0;
+                wavesSpawned = 0;
+
+                tutorialEvents = [];
+                tutorialCounter = 0;
+
                 // Initialize to something that enemies will never reach
                 invisTurningPoint = GAME_FIELD_HEIGHT * 2;
             }
 
             function spawn() {
                 let enemy, realEnemy, enemyLane, i;
-                //console.log(wavesPassed);
+                let isTutorialWave = false;
+
                 // Wave events
-                switch(wavesPassed) {
+                switch(wavesSpawned) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        isTutorialWave = true;
+                        break;
+
                     case 5:
+                    case 6:
+                    case 7:
                         numClones = 1;
                         invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        isTutorialWave = true;
                         break;
 
                     case 20:
@@ -924,15 +1025,15 @@
                         break;
 
                     default:
-                        if (wavesPassed > 350) {
+                        if (wavesSpawned > 350) {
                             invisTurningPoint = GAME_FIELD_HEIGHT / 5;
                         }
                 }
 
-                // make several enemies
-
+                // Choose which lanes to spawn the enemies in
                 enemyLane = randomInt(_lanes.NUM_LANES - numClones);
 
+                // Make the enemy and its clone(s)
                 for (i = 0; i <= numClones; i++) {
                     enemy = _enemyPool.take();
 
@@ -951,18 +1052,44 @@
                     _addEntity(enemy);
                 }
 
-                // Pick an enemy to be the real one
+                // Pick one enemy to be the real one
                 realEnemy = cloneList[randomInt(cloneList.length)];
                 realEnemy.isFake = false;
                 realEnemy.draw = true;
 
-                return realEnemy.lane;
+                // Keep track of tutorial waves
+                if (isTutorialWave) {
+                    tutorialEvents.push({lane: realEnemy.lane, wave: wavesSpawned});
+                }
+
+                // Update number of waves spawned
+                wavesSpawned++;
+            }
+
+            function showTutorial() {
+
+                // Only show tutorial if there are lanes in the tutorial array
+                if (tutorialCounter < tutorialEvents.length && tutorialEvents[tutorialCounter].wave === wavesPassed) {
+                    let tutorialTap;
+
+                    // Create tutorial tap icon
+                    tutorialTap = _tempPool.take();
+
+                    tutorialTap.x = _lanes.getCenterX( tutorialEvents[tutorialCounter++].lane );
+                    tutorialTap.y = _stoppingThreshold;
+                    tutorialTap.sprite = resources.spr_tapIcon();
+                    tutorialTap.width = tutorialTap.sprite.width;
+                    tutorialTap.height = tutorialTap.sprite.height;
+
+                    _addEntity(tutorialTap);
+                }
             }
 
             return {
                 init: init,
                 spawn: spawn,
                 updateWavesPassed: updateWavesPassed,
+                showTutorial: showTutorial,
                 wavesPassed: function() { return wavesPassed; }
             };
         })();
@@ -1020,14 +1147,16 @@
             _enemies = [];
             _frontRowEnemies = [];
             _entitiesToRemove = [];
-            _tutorialLanes = [];
             _gameOver = false;
             _accelerating = true;
             _inputBuffered = false;
             _inputEventFired = false;
+            _inputEnabled = false;
             _score = 0;
             _lastFrameTime = 0;
             _waves.init();
+
+            
 
             // Access/store high scores in local storage
             if (typeof(Storage) !== "undefined") {
@@ -1039,13 +1168,10 @@
                 }
             }
 
-            // Start background music
-            resources.snd_bgm.play();
-
             // Spawn player and first wave
             //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
             _player = new Player(-100, -100, null);
-            _tutorialLanes.push(_waves.spawn());
+            _waves.spawn();
 
             // Begin game loop
             if (!_started) {
@@ -1206,55 +1332,6 @@
                     entity.draw = true;
                 }
 
-                // Tutorial section?
-                if (_tutorialEnabled) {
-                    let tutorialTap;
-
-                    // First 3 waves come with tutorial tap
-                    if (0 <= wavesPassed && wavesPassed <= 2 &&
-                        _accelerating && 
-                        !_inputBuffered &&
-                        entity instanceof Enemy &&
-                        entity.y >= _stoppingThreshold &&
-                        !entity.triggeredPause) {
-
-                                // Pause
-                                pauseThresholdPassed = true;
-                                entity.triggeredPause = true;
-
-                                // Create tutorial stuff
-                                tutorialTap = _tempPool.take();
-
-                                tutorialTap.x = _lanes.getCenterX( _tutorialLanes[wavesPassed] );
-                                tutorialTap.y = _stoppingThreshold;
-                                tutorialTap.sprite = resources.spr_tapIcon();
-                                tutorialTap.width = tutorialTap.sprite.width;
-                                tutorialTap.height = tutorialTap.sprite.height;
-
-                                _addEntity(tutorialTap);
-                    }
-
-                    // Then spawn a couple waves of invis guys that still flash, with tutorial tap
-                    
-
-                    // End tutorial, begin real stuff
-                    else if (wavesPassed >= 3) {
-                        _tutorialEnabled = false;
-                    }
-                }
-
-                // Pause the game when a wave is within a distance
-                // of the player
-                else if (_accelerating && 
-                    !_inputBuffered &&
-                    entity instanceof Enemy &&
-                    entity.y >= _stoppingThreshold &&
-                    !entity.triggeredPause) {
-
-                        pauseThresholdPassed = true;
-                        entity.triggeredPause = true;
-                }
-
                 // Spawn a new wave after previous wave passed
                 // a certain distance
                 if (entity instanceof Enemy &&
@@ -1262,12 +1339,20 @@
                     entity.y >= _newWaveThreshold &&
                     !entity.triggeredWave) {
 
-                    let enemyLane = _waves.spawn();
+                    _waves.spawn();
                     entity.triggeredWave = true;
-                    
+                }
 
-                    if (_tutorialEnabled)
-                        _tutorialLanes.push(enemyLane);
+                // Pause the game when a wave is within a distance
+                // of the player
+                if (_accelerating && 
+                    !_inputBuffered &&
+                    entity instanceof Enemy &&
+                    entity.y >= _stoppingThreshold &&
+                    !entity.triggeredPause) {
+
+                        pauseThresholdPassed = true;
+                        entity.triggeredPause = true;
                 }
 
                 // Remove temp entities when an input event is fired
@@ -1278,6 +1363,12 @@
             if (pauseThresholdPassed) {
                 _toggleAcceleration();
                 _toggleInputBuffer();
+
+                // Show tutorial stuff, if there is any left
+                _waves.showTutorial();
+
+                // Re-enable input
+                _toggleInput();
             }
 
             // Toggle flag
@@ -1295,6 +1386,9 @@
             window.requestAnimationFrame(_updateFunc);
         }
 
+        function _toggleInput() {
+            _inputEnabled = !_inputEnabled;
+        }
         return {
             start: _start,
             update: _update,
@@ -1307,6 +1401,8 @@
             addEntity: _addEntity,
             clickZone: _clickZone,
             updateWavesPassed: _waves.updateWavesPassed,
+            toggleInput: _toggleInput,
+            inputEnabled: function() { return _inputEnabled; },
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
             //score: function() { return _score; },
@@ -1317,6 +1413,7 @@
             enemies: function () { return _enemies; },
             player: function () { return _player; },
             frontRowEnemies: function () { return _frontRowEnemies; }
+            
         };
 
 
@@ -1327,6 +1424,7 @@
     ///////////////////////////////////////
     let clickBoxSize = 40;
     let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize+10);
+
     let lastEvent = null;
     let eventTime = null;
     let inputDeviceSwapTime = 1000;
@@ -1380,7 +1478,9 @@
 
     // The bulk of the handler for touch or mouse event
     function inputHandler(event) {
-        if (!game.started()) return;
+        if (!game.started()) {
+            return;
+        }
 
         let clickLocation;
         let clickZone = game.clickZone;
@@ -1397,10 +1497,12 @@
             clickLocation = getRelativeEventCoords(event);
         }
 
-        // Only register the input if the game is running
-        if (!game.gameOver() && player && 
+        // Only register the input if the game is running, the input location was valid,
+        // and the player is allowed to input
+        if (!game.gameOver() && player && game.inputEnabled() &&
             clickLocation.y >= clickZone) {
 
+            // Determine the location of the clickbox
             clickBox.x = clickLocation.x - (clickBoxSize/2);
             clickBox.y = clickLocation.y - (clickBoxSize/2);
 
@@ -1410,11 +1512,15 @@
 
                 if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
 
+                    // Disable input for now, so player can't click multiple enemies in one go
+                    game.toggleInput();
+
                     // If the clicked enemy is fake, lose life
                     if (enemy.isFake) {
                         enemy.sprite = resources.spr_bigX();
                         player.loseLife();
                         resources.snd_error.play();
+                        
                     }
 
                     // It's real! Gain a life
@@ -1500,15 +1606,6 @@
     // Main Logic
     ///////////////////////////////////////
 
-    // Configure volume
-    let overlaySlider = document.querySelector("#overlay-volume~.slider");
-    let widebarSlider = document.querySelector("#widebar-volume~.slider");
-    let overlayLabel = document.querySelector("#overlay-volume+label>i");
-    let widebarLabel = document.querySelector("#widebar-volume+label>i");
-
-    document.getElementById("overlay-volume").checked = false;
-    document.getElementById("widebar-volume").checked = false;
-
     function volHandler(label, slider) {
         // Convert slider value to a number (from a string)
         let vol = slider.value;
@@ -1538,6 +1635,15 @@
         // Set the volume of all sounds
         resources.setMasterVolume(vol);
     }
+
+    // Configure volume
+    let overlaySlider = document.querySelector("#overlay-volume~.slider");
+    let widebarSlider = document.querySelector("#widebar-volume~.slider");
+    let overlayLabel = document.querySelector("#overlay-volume+label>i");
+    let widebarLabel = document.querySelector("#widebar-volume+label>i");
+
+    document.getElementById("overlay-volume").checked = false;
+    document.getElementById("widebar-volume").checked = false;
 
     // Mouse events
     overlaySlider.addEventListener("mouseup", function(e) {
@@ -1577,176 +1683,27 @@
     // Start the game when the button is clicked
     document.getElementById("start_button").addEventListener("click", 
     function() {
-        game.start(); 
+        // Start background music
+        resources.snd_bgm.play();
+
+        game.start();
     });
 
-    
-    /*//////////////////////////////////////
-    // Click input
-    ///////////////////////////////////////
 
-    function clickStart(e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
+    // Load event for everything
+    window.addEventListener("load", function() {
+        // Ensure volume is still what it's supposed to be
+        let lastVol = resources.initVolume();
 
-        console.log("click");
-
-        let clickLocation = getRelativeEventCoords(e);
-        let player = game.player();
-        let i;
-        let enemy, newX = -1, newY = -1;
+        if (lastVol === 0) {
+            overlayLabel.innerHTML = "volume_mute";
+            widebarLabel.innerHTML = "volume_mute";
+        }
+        else if (lastVol) {
+            overlayLabel.innerHTML = "volume_up";
+            widebarLabel.innerHTML = "volume_up";
+        }
         
-
-        // Only register the input if the game is running
-        if (!game.gameOver() && player && 
-            clickLocation.y >= clickZoneY) {
-
-            clickBox.x = clickLocation.x-5;
-            clickBox.y = clickLocation.y-5;
-
-            // Did the user click on an enemy?
-            for (i = 0; i < game.enemies().length; i++) {
-                enemy = game.enemies()[i];
-
-                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
-                    //newX = enemy.x;
-                    //newY = enemy.y;
-
-                    if (enemy.isFake) {
-                        enemy.sprite = resources.spr_bigX();
-                        player.loseLife();
-                    }
-                    else {
-                        enemy.sprite = resources.spr_explosion();
-                        player.addLife();
-                    }
-                    // Toggle event flag
-                    game.setInputEventFired();
-
-                    // Unpause the game
-                    if (!game.accelerating())
-                        game.toggleAcceleration();
-                    
-                    // If the game is already unpaused, buffer the input
-                    else if (!game.inputBuffered())
-                        game.toggleInputBuffer();
-                    }
-                
-            }
-
-            /* Move the player
-            
-            // Missed?
-            //if (newX !== -1 || newY !== -1) {
-            //    player.move(newX, GAME_FIELD_HEIGHT-60);
-
-                // Toggle event flag
-            //    game.setInputEventFired();
-
-                // Unpause the game
-            //    if (!game.accelerating())
-            //        game.toggleAcceleration();
-                
-                // If the game is already unpaused, buffer the input
-            //    else if (!game.inputBuffered())
-            //        game.toggleInputBuffer();
-            //}
-            
-        }
-    }
-    
-    renderer.canvas.addEventListener("mousedown", clickStart);
-
-    ///////////////////////////////////////
-    // Touch input
-    //////////////////////////////////////
-    
-    function touchStart(e) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-
-        console.log("touch");
-
-        let touches = e.changedTouches;
-        let enemy;
-        let touchLocation;
-        let player = game.player();
-        let i, j;
-
-        //touchLocation = getRelativeEventCoords(touches[touches.length-1]);
-
-        // Only register the input if the game is running
-        if (!game.gameOver() && player) {
-
-            for (i = touches.length - 1; i >= 0; i--) {
-
-                touchLocation = getRelativeEventCoords(touches[i]);
-
-                clickBox.x = touchLocation.x-5;
-                clickBox.y = touchLocation.y-5;
-                
-
-                // Did the user click on an enemy?
-                for (j = 0; j < game.enemies().length && touchLocation.y >= clickZoneY; j++) {
-
-                    enemy = game.enemies()[j];
-
-                    if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
-
-                        if (enemy.isFake) {
-                            enemy.sprite = resources.spr_bigX();
-                            player.loseLife();
-                        }
-                        else {
-                            enemy.sprite = resources.spr_explosion();
-                            player.addLife();
-                        }
-                        // Toggle event flag
-                        game.setInputEventFired();
-
-                        // Unpause the game
-                        if (!game.accelerating())
-                            game.toggleAcceleration();
-                        
-                        // If the game is already unpaused, buffer the input
-                        else if (!game.inputBuffered())
-                            game.toggleInputBuffer();
-                    }
-                
-                }
-            }
-        }
-    }
-
-    renderer.canvas.addEventListener("touchstart", touchStart);*/
-
-    /*/////////////////////////////////////
-    // Keyboard input
-    ///////////////////////////////////////
-    let keybinds = {
-        // num keys 1-4
-        49: 0,
-        50: 1,
-        51: 2,
-        52: 3
-    };
-
-    function keyDown(e) {
-        // which or keyCode depends on browser support
-        let key = e.which || e.keyCode;
-
-        // Move player to lane according to key pressed
-        if(keybinds[key] !== undefined && game.player() && !game.gameOver()) {
-            e.preventDefault();
-            
-            game.player().move(keybinds[key]);
-
-            if (!game.accelerating())
-                game.toggleAcceleration();
-            else if (!game.inputBuffered())
-                game.toggleInputBuffer();
-        }
-    }
-
-    document.body.addEventListener('keydown', keyDown);*/
+        document.getElementById("container").style.display = "block";
+    }, false);
 })();

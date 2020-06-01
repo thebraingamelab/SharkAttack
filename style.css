@@ -9,6 +9,10 @@ body {
     background: #000;
 }
 
+audio {
+    display: none; /* ios issue? */
+}
+
 #container {
     position: absolute;
     width: 0px;
@@ -94,12 +98,12 @@ canvas {
 #start_button {
     background-color: pink;
     color: black;
-    font-family: 'Bubblegum Sans', cursive;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 20px;
     margin: auto;
     text-align: center;
     text-decoration: none;
-    display: block;
+    display: none;
     position: absolute;
     top: 50%;
     left: 35%;
