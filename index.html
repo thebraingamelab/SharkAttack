@@ -19,15 +19,29 @@
             <label for="widebar-volume"><i class="material-icons">volume_up</i></label>
             <input type="range" min="0" max="1" value="0.5" step="0.01" class="slider">
         </div>
+
+        <div class="lives-div" id="lives-widebar"></div>
         
     </div>
     <div id="container">
         <div id="overlay"> 
+
+
             <div id="controls">
                 <input type="checkbox" id="overlay-volume"/>
                 <label for="overlay-volume"><i class="material-icons">volume_up</i></label>
                 <input type="range" min="0" max="1" value="0.5" step="0.01" class="slider">
             </div>
+
+
+            <div id="score-container">
+                <span id="score">Score: 0</span>
+            </div>
+
+
+            <div class="lives-div" id="lives-overlay"></div>
+
+            
         </div>
         <canvas id="gameWindow"> </canvas>
         <button id="start_button">Start New Game</button>
@@ -45,6 +59,6 @@
         <source src="audio/bgm.mp4" type="audio/mp4">
         <source src="audio/bgm.ogg" type="audio/ogg">
     </audio>-->
-    <script src="build/game.js"></script>
+    <script src="build/game.min.js"></script>
 </body>
 </html>

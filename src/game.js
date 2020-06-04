@@ -378,7 +378,15 @@
 
     // Player object
     function Player(x, y, sprite) {
-        Entity.call(this, x, y, 40, 40, sprite);
+        let width = 0;
+        let height = 0;
+
+        if (sprite) {
+            width = sprite.width;
+            height = sprite.height;
+        }
+
+        Entity.call(this, x, y, width, height, sprite);
 
         this.maxLife = 3;
         this.life = this.maxLife;
@@ -391,7 +399,7 @@
     Player.prototype.update = function (dt) {
         Entity.prototype.update.call(this, dt);
 
-        //game.addScore(1);
+        game.addScore(1);
     };
 
     // Increase life amount
@@ -418,7 +426,15 @@
 
     // Enemy object
     function Enemy(x, y, speed, invisPointY, sprite) {
-        Entity.call(this, x, y, 40, 40, sprite);
+        let width = 0;
+        let height = 0;
+
+        if (sprite) {
+            width = sprite.width;
+            height = sprite.height;
+        }
+
+        Entity.call(this, x, y, width, height, sprite);
         
         this.invisPointY = invisPointY;
         this.speed = speed;
@@ -544,29 +560,32 @@
     ///////////////////////////////////////
     let renderer, game, resources;
 
-    const GAME_FIELD_HEIGHT = 720;
-    const GAME_FIELD_WIDTH = 480;
+    const GAME_FIELD_HEIGHT = 960;
+    const GAME_FIELD_WIDTH = 540;
     const GAME_SPEED = 20;
 
     // Resources
     ///////////////////////////////////////
     resources = (function () {
         // Sprites
+
+        const SPRITE_SIZE = 128;
+        const REAL_SIZE = 96;
         // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
         // tiled(imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles)
         let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-        let _enemySprite = _spritePool.take().eventDriven("build/sprites/cat.png", 65, 54, 197, 162, 1, 0, 0, 0);
+        let _enemySprite = _spritePool.take().eventDriven("build/sprites/cat.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
-        let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", 75, 76, 75, 76, 2, 3, 0, 0);
+        let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", REAL_SIZE, REAL_SIZE, 64, 64, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
         let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
-        let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", 45, 60, 239, 299, 1, 0, 0, 0);
-        let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", 128, 128, 1024, 1024, 1, 0, 0, 0);
-        let _check = _spritePool.take().eventDriven("build/sprites/check.png", 75, 75, 775, 552, 1, 0, 0, 0);
+        let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _check = _spritePool.take().eventDriven("build/sprites/check.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
 
         // Audio
         let _audioContext;
@@ -669,7 +688,6 @@
         const _ios = /ipad|iphone|ipod/i.test(_ua) && !window.MSStream;
 
         let _livesDiv;
-        let _previousLives = 0;
 
         let _startBtn = document.getElementById("start_button");
 
@@ -691,19 +709,22 @@
             const addressBarHeight = 50;
             let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
             let container = document.getElementById("container");
+            let overlay = document.getElementById("overlay");
+            let widebar = document.getElementById("widebar");
 
             // Get correct dimensions
             _currentHeight = window.innerHeight;
             _currentWidth = _currentHeight * ratio;
 
             // Cancel previous livesDiv settings
-            if(_livesDiv) {
-                _livesDiv.style.display = "none";
-            }
+            //if(_livesDiv) {
+            //    _livesDiv.parentNode.style.display = "none";
+            //}
 
             // Overlay the lives if there's no room up top
-            _livesDiv = document.getElementById("overlay");
-            _livesDiv.style.display = "initial";
+            _livesDiv = document.getElementById("lives-overlay");
+            overlay.style.display = "initial";
+            overlay.style.height = "8%";
 
             // Add enough size to scroll down 
             // past the address bar on ios or android
@@ -712,7 +733,7 @@
             }
 
             // Double check aspect ratio
-            if (_currentWidth > window.innerWidth) {
+            if ( Math.floor(_currentWidth) > window.innerWidth) {
                 // resize to fit width
                 ratio = GAME_FIELD_HEIGHT / GAME_FIELD_WIDTH;
 
@@ -720,11 +741,13 @@
                 _currentWidth = window.innerWidth;
                 _currentHeight = _currentWidth * ratio;
 
-                // Fill extra space
-                _livesDiv.style.display = "none";
-                _livesDiv = document.getElementById("widebar");
-                _livesDiv.style.display = "initial";
-                _livesDiv.style.height = (window.innerHeight - _currentHeight)+'px';
+                //overlay.style.bottom = "0";
+                overlay.style.height = (window.innerHeight - _currentHeight) + "px";
+                /* Fill extra space
+                overlay.style.display = "none";
+                widebar.style.display = "initial";
+                widebar.style.height = (window.innerHeight - _currentHeight)+'px';
+                _livesDiv = document.getElementById("lives-widebar");*/
             }
 
             // Adjust canvas accordingly
@@ -784,48 +807,64 @@
             };
         })();
 
-        function _updateUI(forceUpdate=false) {
-            let numLives;
-            let i;
+        let _updateUI = (function() {
+            const LIFE_IMAGE = resources.spr_collar();
+            const SCORE_ELEMENT = document.getElementById("score");
 
-            if (!game.started()) {
-                // Hide lives
-                //_livesDiv.style.display = "none";
-                
-                // Make start button disappear
-                _startBtn.style.display = "block";
-            }
-            else {
-                // Show lives
-                //_livesDiv.style.display = "flex";
+            let previousLives = 0;
+            let previousScore = 0;
 
-                // Make start button disappear
-                _startBtn.style.display = "none";
+            return function(forceUpdate=false) {
+                let numLives, score;
+                let i;
 
-                numLives = game.player().life;
-                // Update Player Lives
-                if( _previousLives !== numLives || forceUpdate) {
-                    _previousLives = numLives;
+                if (game && !game.started()) {
+                    // Hide lives
+                    //_livesDiv.style.display = "none";
+                    
+                    // Make start button disappear
+                    _startBtn.style.display = "block";
+                }
+                else if (game) {
+                    // Show lives
+                    //_livesDiv.style.display = "flex";
 
+                    // Make start button disappear
+                    _startBtn.style.display = "none";
 
-                    for (i = 0; i < _livesDiv.childNodes.length; i++) {
-                        if (_livesDiv.childNodes[i] instanceof Image) {
-                            _livesDiv.removeChild(_livesDiv.childNodes[i]);
-                            i--;
+                    numLives = game.player().life;
+                    score = game.score();
+
+                    // Update score
+                    if (previousScore !== score || forceUpdate) {
+                        previousScore = score;
+                        SCORE_ELEMENT.textContent = "Score: " + score;
+                    }
+                    
+                    // Update Player Lives
+                    if( previousLives !== numLives || forceUpdate ) {
+
+                        previousLives = numLives;
+
+                        for (i = 0; i < _livesDiv.childNodes.length; i++) {
+                            if (_livesDiv.childNodes[i] instanceof Image) {
+                                _livesDiv.removeChild(_livesDiv.childNodes[i]);
+                                i--;
+                            }
+                        }
+
+                        // Add an image for each life
+                        for (i = 0; i < numLives; i++) {
+                            let img = document.createElement("img");
+                            img.src = LIFE_IMAGE.image.src;
+                            img.className = "life";
+
+                            _livesDiv.appendChild(img);
                         }
                     }
-
-                    // Add an image for each life
-                    for (i = 0; i < numLives; i++) {
-                        let img = document.createElement("img");
-                        img.src = resources.spr_collar().image.src;
-                        img.className = "life";
-
-                        _livesDiv.appendChild(img);
-                    }
                 }
-            }
-        }
+            };
+        })();
 
         // Render game elements and entities
         function _render(dt) {
@@ -846,19 +885,29 @@
                 //_context.fillStyle = "#FF0000";
                 //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                //if (clickBox !== null)
+                //_context.fillStyle = "#000000";
+                //if (clickBox !== null) {
                 //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                //}
 
-                if (game.accelerating() || entity instanceof TempEntity) {
-                    entity.sprite.update(dt);
-                }
+                // Only render the enemy if it actually has a sprite to render
+                if (entity.sprite) {
 
-                if (entity.draw && entity instanceof TempEntity) {
-                    _drawSprite(entity.sprite, entity.x, entity.y);
-                }
+                    // Update the sprite animation if the game is not paused
+                    // TempEntity objects should animate even when paused
+                    if (game.accelerating() || entity instanceof TempEntity) {
+                        entity.sprite.update(dt);
+                    }
 
-                else if (entity.draw) {
-                    _drawSprite(entity.sprite, entity.x-(entity.width/4), entity.y-(entity.height/2));
+                    // Use different positioning for temp entities
+                    if (entity.draw && entity instanceof TempEntity) {
+                        _drawSprite(entity.sprite, entity.x + entity.width/4, entity.y);
+                    }
+
+                    // Otherwise draw normally
+                    else if (entity.draw) {
+                        _drawSprite(entity.sprite, entity.x/*-(entity.width/4)*/, entity.y/*-(entity.height/2)*/);
+                    }
                 }
             }
         }
@@ -904,17 +953,21 @@
         let _gameOverAnimation;
 
         let _score;
+        let _scoreFraction;
         let _highScores;
+        let _multiplier = 1;
 
         let _lanes = (function() {
             const NUM_LANES = 6;
+            const MARGIN = 20;
+            //const TOTAL_MARGIN_SPACE = MARGIN * (NUM_LANES+1);
 
             let laneList = [];
             let i;
 
-            // Populate the list of lanes with the x coord of each right bound
-            for (i = 1; i <= NUM_LANES; i++) {
-                laneList.push(GAME_FIELD_WIDTH * (i/NUM_LANES));
+            // Populate the list of lanes with the x coord of each left bound
+            for (i = 0; i < NUM_LANES; i++) {
+                laneList.push( GAME_FIELD_WIDTH * (i/NUM_LANES) );
             }
 
             // Get the lane number by x coordinate
@@ -930,7 +983,7 @@
 
             // Get the center of a numbered lane
             function getCenterX(laneNumber) {
-                return (GAME_FIELD_WIDTH / NUM_LANES) * laneNumber + 20;
+                return laneList[laneNumber];// + (GAME_FIELD_WIDTH / NUM_LANES / 2);//MARGIN;
             }
 
             return {
@@ -1043,6 +1096,8 @@
                     enemy.speed = _enemySpeed;
                     enemy.invisPointY = invisTurningPoint;
                     enemy.sprite = resources.spr_enemy();
+                    enemy.width = enemy.sprite.width;
+                    enemy.height = enemy.sprite.height;
                     enemy.draw = false;
                     enemy.isFake = true;
                     enemy.triggeredWave = false;
@@ -1093,9 +1148,17 @@
                 wavesPassed: function() { return wavesPassed; }
             };
         })();
+
+
         // Add onto game score
         function _addScore(num) {
-            _score += num;
+            _score += (num * _multiplier) + _scoreFraction;
+
+            _scoreFraction = _score % 1;
+
+            if (_scoreFraction > 0) {
+                _score -= _scoreFraction;
+            }
             //console.log(_score);
         }
 
@@ -1108,7 +1171,7 @@
             _highScores = _highScores.slice(0, 10);
             // Insert into local storage
             if (typeof(Storage) !== "undefined") {
-                localStorage.nBackScores = JSON.stringify(_highScores);
+                localStorage.setItem("nback_scores", JSON.stringify(_highScores));
             }
         }
 
@@ -1134,7 +1197,7 @@
                 //_player.sprite = resources.spr_explosion();
                 _insertScore(Math.round(_score));
                 
-                console.log(_highScores);
+                //console.log(_highScores);
             }
         }
 
@@ -1153,6 +1216,7 @@
             _inputEventFired = false;
             _inputEnabled = false;
             _score = 0;
+            _scoreFraction = 0;
             _lastFrameTime = 0;
             _waves.init();
 
@@ -1161,9 +1225,13 @@
             // Access/store high scores in local storage
             if (typeof(Storage) !== "undefined") {
                 try {
-                    _highScores = JSON.parse(localStorage.nBackScores);
+                    _highScores = JSON.parse(localStorage.getItem("nback_scores"));
                 }
                 catch(e) {
+                    _highScores = [];
+                }
+
+                if (_highScores === null) {
                     _highScores = [];
                 }
             }
@@ -1171,6 +1239,7 @@
             // Spawn player and first wave
             //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
             _player = new Player(-100, -100, null);
+            _addEntity(_player);
             _waves.spawn();
 
             // Begin game loop
@@ -1253,7 +1322,6 @@
             let entity;
             let alertZone;
             let pauseThresholdPassed = false;
-            let wavesPassed = _waves.wavesPassed();
             let i, len = _entities.length;
 
             // Smooth FPS
@@ -1274,8 +1342,9 @@
                 entity = _entities[i];
                 alertZone = entity.invisPointY-_newWaveThreshold;
 
-                if (_accelerating)
+                if (_accelerating) {
                     entity.update(dt);
+                }
 
                 // Enemy in the clickZone? Keep track in frontRow array
                 if (entity instanceof Enemy && 
@@ -1369,11 +1438,15 @@
 
                 // Re-enable input
                 _toggleInput();
+
+                // Start a timer to determine any score multipliers
+                _inputTimer.start();
             }
 
             // Toggle flag
-            if (_inputEventFired)
+            if (_inputEventFired) {
                 _inputEventFired = false;
+            }
 
             // Delete offscreen or absorbed enemies
             _removeEntities(_entitiesToRemove);
@@ -1389,6 +1462,50 @@
         function _toggleInput() {
             _inputEnabled = !_inputEnabled;
         }
+
+        let _inputTimer = (function() {
+            const WAIT_TIME = 1500;
+            let timeout;
+            let timerStillRunning = false;
+            let successes = 0;
+            let untilMultiplierIncrease = 3;
+
+            function start() {
+                timerStillRunning = true;
+                timeout = window.setTimeout(reset, WAIT_TIME);
+            }
+
+            function stop() {
+                if (timerStillRunning) {
+                    window.clearTimeout(timeout);
+                    timerStillRunning = false;
+                    successes = (successes+1) % untilMultiplierIncrease;
+
+                    if (successes === 1) {
+                        untilMultiplierIncrease += 2;
+                        _multiplier += 0.5;
+                        console.log(_multiplier + "x multipler!");
+                    }
+                }
+            }
+
+            function reset() {
+                _multiplier = 1;
+                successes = 0;
+                untilMultiplierIncrease = 3;
+                timerStillRunning = false;
+
+                console.log("Multiplier reset to 1.");
+            }
+
+            return {
+                start: start,
+                stop: stop,
+                reset: reset
+            };
+        })();
+        
+
         return {
             start: _start,
             update: _update,
@@ -1402,6 +1519,7 @@
             clickZone: _clickZone,
             updateWavesPassed: _waves.updateWavesPassed,
             toggleInput: _toggleInput,
+            inputTimer: _inputTimer,
             inputEnabled: function() { return _inputEnabled; },
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
@@ -1412,7 +1530,8 @@
             entities: function () { return _entities; },
             enemies: function () { return _enemies; },
             player: function () { return _player; },
-            frontRowEnemies: function () { return _frontRowEnemies; }
+            frontRowEnemies: function () { return _frontRowEnemies; },
+            score: function() { return _score; }
             
         };
 
@@ -1422,7 +1541,7 @@
     //////////////////////////////////////
     // Input Handling
     ///////////////////////////////////////
-    let clickBoxSize = 40;
+    let clickBoxSize = 32;
     let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize+10);
 
     let lastEvent = null;
@@ -1515,10 +1634,11 @@
                     // Disable input for now, so player can't click multiple enemies in one go
                     game.toggleInput();
 
-                    // If the clicked enemy is fake, lose life
+                    // If the clicked enemy is fake, lose life, reset multiplier
                     if (enemy.isFake) {
                         enemy.sprite = resources.spr_bigX();
                         player.loseLife();
+                        game.inputTimer.reset();
                         resources.snd_error.play();
                         
                     }
@@ -1527,6 +1647,7 @@
                     else {
                         enemy.sprite = resources.spr_check();
                         player.addLife();
+                        game.inputTimer.stop();
                         resources.snd_valid.play();
                     }
 
