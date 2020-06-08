@@ -99,7 +99,7 @@ audio {
     /*visibility: hidden;
     /*display: flex;
     flex-direction: row;*/
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     height: 8%;
@@ -111,6 +111,7 @@ audio {
 canvas {
     position: absolute;
     background: rgb(109, 175, 53);
+    outline: 8px solid black;
 }
 
 #start_button {

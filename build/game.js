@@ -724,6 +724,7 @@
             // Overlay the lives if there's no room up top
             _livesDiv = document.getElementById("lives-overlay");
             overlay.style.display = "initial";
+            overlay.style.position = "absolute";
             overlay.style.height = "8%";
 
             // Add enough size to scroll down 
@@ -743,6 +744,7 @@
 
                 //overlay.style.bottom = "0";
                 overlay.style.height = (window.innerHeight - _currentHeight) + "px";
+                overlay.style.position = "fixed";
                 /* Fill extra space
                 overlay.style.display = "none";
                 widebar.style.display = "initial";
