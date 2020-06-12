@@ -6,6 +6,15 @@
     // Helper functions/objects
     ///////////////////////////////////////
 
+    // function getEventTarget
+    // Input: e, the event
+    // Side effects: none
+    // Returns: the target of the event
+    function getEventTarget(e) {
+        e = e || window.event;
+        return e.target || e.srcElement;
+    }
+
     // Random Integer, 0 thru max - 1
     function randomInt(max) {
         return Math.floor(Math.random() * Math.floor(max));
@@ -731,6 +740,9 @@
             // past the address bar on ios or android
             if (_android || _ios) {
                 document.body.style.height = (window.innerHeight + addressBarHeight) + 'px';
+            }
+            else {
+                document.body.style.height = window.innerHeight+'px';
             }
 
             // Double check aspect ratio
@@ -1554,7 +1566,7 @@
     // Touch
     ///////////////////////////////////////
     renderer.canvas.addEventListener("touchstart", function(event) {
-        event.preventDefault();
+        //event.preventDefault();
 
         if (lastEvent === "mousedown") {
 
@@ -1575,7 +1587,7 @@
     // Mouse
     ///////////////////////////////////////
     renderer.canvas.addEventListener("mousedown", function(event) {
-        event.preventDefault();
+        //event.preventDefault();
 
         if (lastEvent === "touchstart") {
 
@@ -1811,6 +1823,12 @@
 
         game.start();
     });
+
+    // Prevent stuff like user scrolling
+    // Passive: false is required for it to register
+    document.body.addEventListener("touchmove", function (e) {
+        e.preventDefault();
+    }, { passive: false });
 
 
     // Load event for everything
