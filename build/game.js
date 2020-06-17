@@ -220,6 +220,7 @@
         this.currentFrame = 0;
         this.image = image;
         this.animationEndEvent = null;
+        this.layers = [];
     }
 
     // Constructor for event-based sprites
@@ -305,6 +306,13 @@
     };
 
     Sprite.prototype.update = function (dt) {
+        let i, layer;
+
+        // Update sprite layers
+        for (i = 0; i < this.layers.length; i++) {
+            this.layers[i].update(dt);
+        }
+
         // While the sprite is animated...
         if (this.frameRate > 0) {
             this.timer += dt;
@@ -346,6 +354,10 @@
         this.animationEndEvent = otherSprite.animationEndEvent;
 
         return this;
+    };
+
+    Sprite.prototype.addLayer = function (newSprite) {
+        this.layers.push(newSprite);
     };
 
 
@@ -629,7 +641,7 @@
 
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-        let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", 72, 72, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
@@ -639,6 +651,7 @@
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
 
         // Audio
         let _audioContext;
@@ -680,6 +693,7 @@
             spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
             spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
             spr_check: function() { return _spritePool.take().copyAttributes(_check); },
+            spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
 
             snd_valid: _valid,
             snd_error: _error,
@@ -829,23 +843,36 @@
 
         // Draw a sprite to the context
         function _drawSprite(sprite, x, y) {
-            // If the image is static or the animation reached its end,
-            // only draw the last frame (sometimes the only frame)
-            if (sprite.frameRate <= 0 || sprite.currentFrame >= sprite.frames) {
-                _context.drawImage(sprite.image,
-                                    sprite.width*(sprite.frames-1), 0,
-                                    sprite.width, sprite.height,
-                                    x, y,
-                                    sprite.width, sprite.height);
-            }
+            let layers = sprite.layers;
+            let original = sprite;
+            let i;
 
-            // Otherwise, draw the correct frame of the animated sprite
-            else {
-                _context.drawImage(sprite.image,
-                                    sprite.width*sprite.currentFrame, 0,
-                                    sprite.width, sprite.height,
-                                    x, y,
-                                    sprite.width, sprite.height);
+            // Draw the sprite and each layer
+            for(i = 0; i <= layers.length; i++) {
+                sprite = layers[i];
+
+                if (i === layers.length) {
+                    sprite = original;
+                }
+
+                // If the image is static or the animation reached its end,
+                // only draw the last frame (sometimes the only frame)
+                if (sprite.frameRate <= 0 || sprite.currentFrame >= sprite.frames) {
+                    _context.drawImage(sprite.image,
+                                        sprite.width*(sprite.frames-1), 0,
+                                        sprite.width, sprite.height,
+                                        x, y,
+                                        sprite.width, sprite.height);
+                }
+
+                // Otherwise, draw the correct frame of the animated sprite
+                else {
+                    _context.drawImage(sprite.image,
+                                        sprite.width*sprite.currentFrame, 0,
+                                        sprite.width, sprite.height,
+                                        x, y,
+                                        sprite.width, sprite.height);
+                }
             }
             
         }
@@ -1162,6 +1189,7 @@
                 enemy.speed = _enemySpeed;
                 enemy.invisPointY = invisTurningPoint;
                 enemy.sprite = resources.spr_enemy();
+                enemy.sprite.addLayer(resources.spr_grave());
                 enemy.width = enemy.sprite.width;
                 enemy.height = enemy.sprite.height;
                 enemy.draw = true;
@@ -1426,7 +1454,7 @@
 
         // Remove entities from game
         function _removeEntities(entitiesToRemove) {
-            let i, len = entitiesToRemove.length;
+            let i, j, len = entitiesToRemove.length;
 
             // Don't do anything if no entities to remove
             if (len === 0) {
@@ -1440,17 +1468,28 @@
             for (i = len-1; i >= 0; i--) {
                 let entityToRemove = entitiesToRemove[i];
                 let idxToRemove;
+                let layers;
 
-                // Put back the entity's sprite
-                if (entityToRemove.sprite !== null)
+                // Put back the entity's sprite (and each of its layers)
+                if (entityToRemove.sprite !== null) {
+                    layers = entityToRemove.sprite.layers;
+
+                    // Layers
+                    for (j = 0; j < layers.length; j++) {
+                        resources.putSpriteBack(layers[i]);
+                    }
+
+                    // Original sprite
                     resources.putSpriteBack(entityToRemove.sprite);
+                }
 
                 // General entities array
                 idxToRemove = _entities.indexOf(entityToRemove);
                 
                 // Only remove if it's actually there
-                if (idxToRemove >= 0)
+                if (idxToRemove >= 0) {
                     mutableRemoveIndex(_entities, idxToRemove);
+                }
 
                 // Enemies
                 idxToRemove = _enemies.indexOf(entityToRemove);
@@ -1463,8 +1502,9 @@
                 }
 
                 // Temporary Entitites
-                if (entityToRemove instanceof TempEntity)
+                if (entityToRemove instanceof TempEntity) {
                     _tempPool.putBack(entityToRemove);
+                }
             }
     
             // Wipe player off the face of the planet if
