@@ -337,6 +337,7 @@
         this.frames = 0;
         this.currentFrame = 0;
         this.timer = 0;
+        this.layers.length = 0;
         this.image = null;
         this.animationEndEvent = null;
     };
@@ -352,6 +353,7 @@
         this.frames = otherSprite.frames;
         this.image = otherSprite.image;
         this.animationEndEvent = otherSprite.animationEndEvent;
+        this.layers = otherSprite.layers;
 
         return this;
     };
