@@ -6,6 +6,11 @@
     // Helper functions/objects
     ///////////////////////////////////////
 
+    // clamp between two values
+    function clamp(number, min, max) {
+        return Math.min(Math.max(number, min), max);
+    }
+
     // function getEventTarget
     // Input: e, the event
     // Side effects: none
@@ -221,6 +226,9 @@
         this.image = image;
         this.animationEndEvent = null;
         this.layers = [];
+        this.draw = true;
+        this.alpha = 1;
+        this.fadeAmt = 0;
     }
 
     // Constructor for event-based sprites
@@ -306,7 +314,10 @@
     };
 
     Sprite.prototype.update = function (dt) {
-        let i, layer;
+        let i;
+
+        // Fade in or out
+        this.alpha = clamp(this.alpha+this.fadeAmt, 0, 1);
 
         // Update sprite layers
         for (i = 0; i < this.layers.length; i++) {
@@ -337,8 +348,12 @@
         this.frames = 0;
         this.currentFrame = 0;
         this.timer = 0;
+        this.alpha = 1;
+        this.fadeAmt = 0;
+        this.layers.length = 0;
         this.image = null;
         this.animationEndEvent = null;
+        this.draw = true;
     };
 
     Sprite.prototype.clone = function () {
@@ -352,6 +367,10 @@
         this.frames = otherSprite.frames;
         this.image = otherSprite.image;
         this.animationEndEvent = otherSprite.animationEndEvent;
+        this.layers = otherSprite.layers;
+        this.draw = otherSprite.draw;
+        this.alpha = otherSprite.alpha;
+        this.fadeAmt = otherSprite.fadeAmt;
 
         return this;
     };
@@ -371,7 +390,6 @@
         this.y = y;
 
         this.time = 0;
-        this.draw = true;
 
         this.width = width;
         this.height = height;
@@ -388,7 +406,6 @@
         this.x = 0;
         this.y = 0;
         this.time = 0;
-        this.draw = true;
         this.sprite = null;
     };
 
@@ -510,6 +527,8 @@
     Enemy.prototype.init = function () {
         Entity.prototype.init.call(this);
 
+        this.x = -100;
+        this.y = -100;
         this.invisPointY = 0;
         this.speed = 0;
         this.lane = 1;
@@ -857,21 +876,40 @@
 
                 // If the image is static or the animation reached its end,
                 // only draw the last frame (sometimes the only frame)
-                if (sprite.frameRate <= 0 || sprite.currentFrame >= sprite.frames) {
+                if (sprite.draw &&
+                   (sprite.frameRate <= 0 || sprite.currentFrame >= sprite.frames)) {
+
+                    // Apply opacity
+                    _context.save();
+                    _context.globalAlpha = sprite.alpha;
+
+                    // Draw the image
                     _context.drawImage(sprite.image,
                                         sprite.width*(sprite.frames-1), 0,
                                         sprite.width, sprite.height,
                                         x, y,
                                         sprite.width, sprite.height);
+
+                    // Restore to normal opacity for everything else
+                    _context.restore();
                 }
 
                 // Otherwise, draw the correct frame of the animated sprite
-                else {
+                else if (sprite.draw) {
+
+                    // Apply opacity
+                    _context.save();
+                    _context.globalAlpha = sprite.alpha;
+
+                    // Draw the image
                     _context.drawImage(sprite.image,
                                         sprite.width*sprite.currentFrame, 0,
                                         sprite.width, sprite.height,
                                         x, y,
                                         sprite.width, sprite.height);
+
+                    // Restore to normal opacity for everything else
+                    _context.restore();
                 }
             }
             
@@ -970,27 +1008,27 @@
                 //_context.fillStyle = "#FF0000";
                 //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                _context.fillStyle = "#000000";
-                if (clickBox !== null) {
-                   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
-                }
+                //_context.fillStyle = "#000000";
+                //if (clickBox !== null) {
+                //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                //}
 
                 // Only render the enemy if it actually has a sprite to render
                 if (entity.sprite) {
 
                     // Update the sprite animation if the game is not paused
                     // TempEntity objects should animate even when paused
-                    if (game.accelerating() || entity instanceof TempEntity) {
+                    if (game.accelerating() || entity instanceof TempEntity || entity.sprite.fadeAmt !== 0) {
                         entity.sprite.update(dt);
                     }
 
                     // Use different positioning for temp entities
-                    if (entity.draw && entity instanceof TempEntity) {
+                    if (entity instanceof TempEntity) {
                         _drawSprite(entity.sprite, entity.x + entity.width/4, entity.y);
                     }
 
                     // Otherwise draw normally
-                    else if (entity.draw) {
+                    else {
                         _drawSprite(entity.sprite, entity.x/*-(entity.width/4)*/, entity.y/*-(entity.height/2)*/);
                     }
                 }
@@ -1014,6 +1052,13 @@
     game = (function() {
         /* jshint validthis: true */
 
+        // Enumerator for spawning modes
+        const MODES = Object.freeze({
+            single: 1, 
+            clones: 2, 
+            graves: 3
+        });
+
         let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
         let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
 
@@ -1034,7 +1079,7 @@
         let _started = false;
         let _gameOver;
 
-        let _singleSpawning = true;
+        let _spawnMode = 3;
         let _easyAccuracy = false;
 
         let _updateFunc;
@@ -1112,13 +1157,119 @@
                 // Initialize to something that enemies will never reach
                 invisTurningPoint = GAME_FIELD_HEIGHT * 2;
 
-                if (_singleSpawning) {
-                    spawn = singleSpawn;
-                }
-                else {
-                    spawn = cloneSpawn;
+                switch(_spawnMode) {
+                    case MODES.single:
+                        spawn = singleSpawn;
+                        break;
+                    case MODES.clones:
+                        spawn = cloneSpawn;
+                        break;
+                    case MODES.graves:
+                        spawn = graveSpawn;
                 }
             }
+            
+            let graveSpawn = function() {
+                let enemy, realEnemy, enemyLane, i;
+                let isTutorialWave = false;
+
+                // numClones === number of graves
+
+                // Wave events
+                switch(wavesSpawned) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        isTutorialWave = true;
+                        break;
+
+                    case 5:
+                    case 6:
+                    case 7:
+                        numClones = 1;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        isTutorialWave = true;
+                        break;
+
+                    case 20:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 35:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 80:
+                        numClones = 2;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 100:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 140:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 220:
+                        numClones = 3;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 240:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 350:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    default:
+                        if (wavesSpawned > 350) {
+                            invisTurningPoint = GAME_FIELD_HEIGHT / 5;
+                        }
+                }
+
+                // Choose which lanes to spawn the enemies in
+                enemyLane = randomInt(_lanes.NUM_LANES - numClones);
+
+                // Make the enemy and its grave(s)
+                for (i = 0; i <= numClones; i++) {
+                    enemy = _enemyPool.take();
+
+                    enemy.lane = enemyLane+i;
+                    enemy.x = _lanes.getCenterX(enemyLane+i);
+                    enemy.y = -10;
+                    enemy.speed = _enemySpeed;
+                    enemy.invisPointY = invisTurningPoint;
+                    enemy.sprite = resources.spr_grave();
+                    enemy.width = enemy.sprite.width;
+                    enemy.height = enemy.sprite.width;
+                    enemy.isFake = true;
+                    enemy.triggeredWave = false;
+                    enemy.triggeredPause = false;
+
+                    cloneList[i] = enemy;
+                    _addEntity(enemy);
+                }
+
+                // Pick one enemy to be the real one
+                realEnemy = cloneList[randomInt(cloneList.length)];
+                resources.putSpriteBack(realEnemy.sprite);
+                realEnemy.sprite = resources.spr_enemy();
+                realEnemy.sprite.addLayer(resources.spr_grave());
+                realEnemy.isFake = false;
+                realEnemy.sprite.draw = true;
+
+                // Keep track of tutorial waves
+                if (isTutorialWave) {
+                    tutorialEvents.push({lane: realEnemy.lane, wave: wavesSpawned});
+                }
+
+                // Update number of waves spawned
+                wavesSpawned++;
+            };
 
             let singleSpawn = function() {
                 let enemy, enemyLane;
@@ -1189,10 +1340,8 @@
                 enemy.speed = _enemySpeed;
                 enemy.invisPointY = invisTurningPoint;
                 enemy.sprite = resources.spr_enemy();
-                enemy.sprite.addLayer(resources.spr_grave());
                 enemy.width = enemy.sprite.width;
                 enemy.height = enemy.sprite.height;
-                enemy.draw = true;
                 enemy.isFake = false;
                 enemy.triggeredWave = false;
                 enemy.triggeredPause = false;
@@ -1283,7 +1432,7 @@
                     enemy.sprite = resources.spr_enemy();
                     enemy.width = enemy.sprite.width;
                     enemy.height = enemy.sprite.height;
-                    enemy.draw = false;
+                    enemy.sprite.draw = false;
                     enemy.isFake = true;
                     enemy.triggeredWave = false;
                     enemy.triggeredPause = false;
@@ -1295,7 +1444,7 @@
                 // Pick one enemy to be the real one
                 realEnemy = cloneList[randomInt(cloneList.length)];
                 realEnemy.isFake = false;
-                realEnemy.draw = true;
+                realEnemy.sprite.draw = true;
 
                 // Keep track of tutorial waves
                 if (isTutorialWave) {
@@ -1582,23 +1731,49 @@
                         _toggleInputBuffer();
                 }*/
 
-                // About to be invisible? Flash!
+                // About to be invisible?
                 else if (entity instanceof Enemy &&
-                        (entity.isFake || _singleSpawning) &&
+                            ((_spawnMode === MODES.clones && entity.isFake) || 
+                            _spawnMode === MODES.single ||
+                            (_spawnMode === MODES.graves && !entity.isFake)
+                            ) &&
                         entity.y >= alertZone &&
                         entity.y < entity.invisPointY) {
-                        
-                    entity.draw = !entity.draw;
+                    
+                    // Begin transparency
+                    if (_spawnMode === MODES.graves) {
+                        entity.sprite.alpha = 1 - ( (entity.y - alertZone) / (entity.invisPointY - alertZone) );
+                    }
+
+                    // Flash!
+                    else {
+                        entity.sprite.draw = !entity.sprite.draw;
+                    }
                 }
 
                 // Invisible?
                 else if (entity instanceof Enemy &&
-                        (entity.isFake || _singleSpawning) &&
+                            ((_spawnMode === MODES.clones && entity.isFake) || 
+                            _spawnMode === MODES.single ||
+                            (_spawnMode === MODES.graves && !entity.isFake)
+                            ) &&
                          entity.y >= entity.invisPointY) {
 
                     // When spawning clones, make clones.draw = true
                     // When spawning singles, make the singles.draw = false
-                    entity.draw = !_singleSpawning;
+                    switch(_spawnMode) {
+                        case MODES.single:
+                        case MODES.graves:
+                            entity.sprite.draw = false;
+                            break;
+                        case MODES.clones:
+                            entity.sprite.draw = true;
+                            break;
+                        //case MODES.graves:
+                        //    entity.sprite.draw = true;
+                            //entity.sprite.fadeAmt = -0.02;
+                        //    break;
+                    }
                 }
 
                 // Spawn a new wave after previous wave passed
@@ -1720,7 +1895,7 @@
             updateWavesPassed: _waves.updateWavesPassed,
             toggleInput: _toggleInput,
             inputTimer: _inputTimer,
-            singleSpawning: _singleSpawning,
+            spawnMode: _spawnMode,
             easyAccuracy: _easyAccuracy,
             stoppingThreshold: _stoppingThreshold,
             inputEnabled: function() { return _inputEnabled; },
