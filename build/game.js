@@ -140,8 +140,11 @@
     };
 
     Rectangle.prototype.intersects = function (r2) {
-        return this.right() >= r2.left() && this.left() <= r2.right() &&
-               this.top() <= r2.bottom() && this.bottom() >= r2.top();
+        return this.right() >= r2.left() &&
+               this.left() <= r2.right() &&
+
+               this.top() <= r2.bottom() &&
+               this.bottom() >= r2.top();
     };
 
     Rectangle.prototype.contains = function (x, y) {
@@ -169,6 +172,41 @@
         this.y = y;
         this.width = width;
         this.height = height;
+
+        return this;
+    };
+
+    Rectangle.prototype.intersection = function (r2) {
+        let iLeft, iRight, iTop, iBottom;
+
+        iLeft = Math.max(this.left(), r2.left());
+        iBottom = Math.min(this.bottom(), r2.bottom());
+
+        iRight = Math.min(this.right(), r2.right());
+        iTop = Math.max(this.top(), r2.top());
+
+        //  no intersection
+        if (iLeft > iRight || iBottom < iTop) {
+            this.x = -1;
+            this.y = -1;
+            this.width = 0;
+            this.height = 0;
+        }
+        
+        // intersection!
+        else {
+            this.x = iLeft;
+            this.y = iTop;
+            this.width = iRight - iLeft;
+            this.height = iBottom - iTop;
+        }
+
+
+        return this;
+    };
+
+    Rectangle.prototype.getArea = function () {
+        return (this.height * this.width);
     };
 
 
@@ -451,6 +489,7 @@
         this.lane = 1;
         this.triggeredWave = false;
         this.triggeredPause = false;
+        this.clicked = false;
     }
 
     // Enemy extends Entity
@@ -465,6 +504,7 @@
         this.isFake = false;
         this.triggeredWave = false;
         this.triggeredPause = false;
+        this.clicked = false;
     };
 
     Enemy.prototype.clone = function () {
@@ -579,22 +619,26 @@
         // Sprites
 
         const SPRITE_SIZE = 128;
-        const REAL_SIZE = 96;
+
+        let realSize = 90;
+
+
         // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
         // tiled(imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles)
         let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
         //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
         //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-        let _enemySprite = _spritePool.take().eventDriven("build/sprites/cat.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
         //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
-        let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", REAL_SIZE, REAL_SIZE, 64, 64, 2, 3, 0, 0);
+        let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
-        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
-        let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
+        let _tiledGrass = _spritePool.take().eventDriven("build/sprites/grassland-real.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 896, 1, 0, 0, 0);
+        let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-        let _check = _spritePool.take().eventDriven("build/sprites/check.png", REAL_SIZE, REAL_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
 
         // Audio
         let _audioContext;
@@ -899,10 +943,10 @@
                 //_context.fillStyle = "#FF0000";
                 //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                //_context.fillStyle = "#000000";
-                //if (clickBox !== null) {
-                //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
-                //}
+                _context.fillStyle = "#000000";
+                if (clickBox !== null) {
+                   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                }
 
                 // Only render the enemy if it actually has a sprite to render
                 if (entity.sprite) {
@@ -963,6 +1007,9 @@
         let _started = false;
         let _gameOver;
 
+        let _singleSpawning = true;
+        let _easyAccuracy = false;
+
         let _updateFunc;
         let _gameOverAnimation;
 
@@ -973,7 +1020,7 @@
 
         let _lanes = (function() {
             const NUM_LANES = 6;
-            const MARGIN = 20;
+            //const MARGIN = 20;
             //const TOTAL_MARGIN_SPACE = MARGIN * (NUM_LANES+1);
 
             let laneList = [];
@@ -986,8 +1033,8 @@
 
             // Get the lane number by x coordinate
             function getLaneByLocation(x) {
-                for (i = 0; i < NUM_LANES; i++) {
-                    if ( x < laneList[i] ) {
+                for (i = NUM_LANES; i >= 0; i--) {
+                    if ( x > laneList[i] ) {
                         return i;
                     }
                 }
@@ -1019,6 +1066,8 @@
             let tutorialEvents;
             let tutorialCounter;
 
+            let spawn;
+
             function updateWavesPassed() {
                 wavesPassed++;
             }
@@ -1035,9 +1084,103 @@
 
                 // Initialize to something that enemies will never reach
                 invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+
+                if (_singleSpawning) {
+                    spawn = singleSpawn;
+                }
+                else {
+                    spawn = cloneSpawn;
+                }
             }
 
-            function spawn() {
+            let singleSpawn = function() {
+                let enemy, enemyLane;
+                let isTutorialWave = false;
+
+                // Wave events
+                switch(wavesSpawned) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        isTutorialWave = true;
+                        break;
+
+                    case 5:
+                    case 6:
+                    case 7:
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        isTutorialWave = true;
+                        break;
+
+                    case 20:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 35:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 80:
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 100:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 140:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 220:
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 240:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 350:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    default:
+                        if (wavesSpawned > 350) {
+                            invisTurningPoint = GAME_FIELD_HEIGHT / 5;
+                        }
+                }
+
+                // Choose which lane to spawn the enemy in
+                enemyLane = randomInt(_lanes.NUM_LANES);
+
+                // Make the enemy
+                enemy = _enemyPool.take();
+
+                enemy.lane = enemyLane;
+                enemy.x = _lanes.getCenterX(enemyLane);
+                enemy.y = -10;
+                enemy.speed = _enemySpeed;
+                enemy.invisPointY = invisTurningPoint;
+                enemy.sprite = resources.spr_enemy();
+                enemy.width = enemy.sprite.width;
+                enemy.height = enemy.sprite.height;
+                enemy.draw = true;
+                enemy.isFake = false;
+                enemy.triggeredWave = false;
+                enemy.triggeredPause = false;
+
+                _addEntity(enemy);
+
+                // Keep track of tutorial waves
+                if (isTutorialWave) {
+                    tutorialEvents.push({lane: enemyLane, wave: wavesSpawned});
+                }
+
+                // Update number of waves spawned
+                wavesSpawned++;
+            };
+
+            let cloneSpawn = function() {
                 let enemy, realEnemy, enemyLane, i;
                 let isTutorialWave = false;
 
@@ -1133,7 +1276,7 @@
 
                 // Update number of waves spawned
                 wavesSpawned++;
-            }
+            };
 
             function showTutorial() {
 
@@ -1156,9 +1299,9 @@
 
             return {
                 init: init,
-                spawn: spawn,
                 updateWavesPassed: updateWavesPassed,
                 showTutorial: showTutorial,
+                spawn: function() { spawn(); },
                 wavesPassed: function() { return wavesPassed; }
             };
         })();
@@ -1363,8 +1506,9 @@
                 // Enemy in the clickZone? Keep track in frontRow array
                 if (entity instanceof Enemy && 
                     entity.y >= _clickZone &&
+                    !entity.clicked &&
                     _frontRowEnemies.indexOf(entity) < 0) {
-                        
+
                         _frontRowEnemies.push(entity);
                 }
 
@@ -1400,7 +1544,7 @@
 
                 // About to be invisible? Flash!
                 else if (entity instanceof Enemy &&
-                        entity.isFake &&
+                        (entity.isFake || _singleSpawning) &&
                         entity.y >= alertZone &&
                         entity.y < entity.invisPointY) {
                         
@@ -1409,10 +1553,12 @@
 
                 // Invisible?
                 else if (entity instanceof Enemy &&
-                         entity.isFake &&
+                        (entity.isFake || _singleSpawning) &&
                          entity.y >= entity.invisPointY) {
 
-                    entity.draw = true;
+                    // When spawning clones, make clones.draw = true
+                    // When spawning singles, make the singles.draw = false
+                    entity.draw = !_singleSpawning;
                 }
 
                 // Spawn a new wave after previous wave passed
@@ -1534,6 +1680,9 @@
             updateWavesPassed: _waves.updateWavesPassed,
             toggleInput: _toggleInput,
             inputTimer: _inputTimer,
+            singleSpawning: _singleSpawning,
+            easyAccuracy: _easyAccuracy,
+            stoppingThreshold: _stoppingThreshold,
             inputEnabled: function() { return _inputEnabled; },
             accelerating: function() { return _accelerating; },
             inputBuffered: function() { return _inputBuffered; },
@@ -1617,8 +1766,10 @@
 
         let clickLocation;
         let clickZone = game.clickZone;
-        let enemy, enemies = game.frontRowEnemies(), player = game.player();
+        let enemy, intendedEnemy = null, enemies = game.frontRowEnemies(), player = game.player();
         let i, len = enemies.length;
+        let collisionRect;
+        let intersectionArea = 0, hitArea = 0;
         
         // Touch input
         if (event.type === "touchstart") {
@@ -1639,51 +1790,71 @@
             clickBox.x = clickLocation.x - (clickBoxSize/2);
             clickBox.y = clickLocation.y - (clickBoxSize/2);
 
+            if (game.easyAccuracy) {
+                clickBox.x = game.lanes.getCenterX(game.lanes.getLaneByLocation(clickLocation.x));
+                clickBox.y = game.stoppingThreshold;
+                clickBox.height = 64;
+                clickBox.width = 1;
+            }
+
             // Did the user click on an enemy?
             for (i = 0; i < len; i++) {
                 enemy = enemies[i];
 
-                if (enemy.draw && enemy.collisionRect().intersects(clickBox)) {
+                collisionRect = enemy.collisionRect();
+                intersectionArea = collisionRect.intersection(clickBox).getArea();
 
-                    // Disable input for now, so player can't click multiple enemies in one go
-                    game.toggleInput();
+                // NOTE: intersection area > 0 if there is any actual intersection (player actually clicked on an enemy)
 
-                    // If the clicked enemy is fake, lose life, reset multiplier
-                    if (enemy.isFake) {
-                        enemy.sprite = resources.spr_bigX();
-                        player.loseLife();
-                        game.inputTimer.reset();
-                        resources.snd_error.play();
-                        
-                    }
-
-                    // It's real! Gain a life
-                    else {
-                        enemy.sprite = resources.spr_check();
-                        player.addLife();
-                        game.inputTimer.stop();
-                        resources.snd_valid.play();
-                    }
-
-                    // Toggle event flag
-                    game.setInputEventFired();
-
-                    // Unpause the game
-                    if (!game.accelerating())
-                        game.toggleAcceleration();
-                    
-                    // If the game is already unpaused, buffer the input
-                    else if (!game.inputBuffered())
-                        game.toggleInputBuffer();
-
-
-                    // Reset the front row for next wave
-                    enemies.length = 0;
-                    game.updateWavesPassed();
-
-                    return;
+                // If more of the clickBox is on this enemy, then this is the intended enemy
+                if (/*collisionRect.intersects(clickBox) && */intersectionArea > hitArea) {
+                    hitArea = intersectionArea;
+                    enemy.clicked = true;
+                    intendedEnemy = enemy;
                 }
                 
+            }
+
+            if (hitArea > 0) {
+                // Disable input for now, so player can't click multiple enemies in one go
+                game.toggleInput();
+
+                // If the clicked enemy is fake, lose life, reset multiplier
+                if (intendedEnemy.isFake) {
+                    //resources.putSpriteBack(enemy.sprite);
+                    intendedEnemy.sprite = resources.spr_bigX();
+                    player.loseLife();
+                    game.inputTimer.reset();
+                    resources.snd_error.play();
+                    
+                }
+
+                // It's real! Gain a life
+                else {
+                    //resources.putSpriteBack(enemy.sprite);
+                    intendedEnemy.sprite = resources.spr_check();
+                    player.addLife();
+                    game.inputTimer.stop();
+                    resources.snd_valid.play();
+                }
+
+                // Toggle event flag
+                game.setInputEventFired();
+
+                // Unpause the game
+                if (!game.accelerating()) {
+                    game.toggleAcceleration();
+                }
+                
+                // If the game is already unpaused, buffer the input
+                else if (!game.inputBuffered()) {
+                    game.toggleInputBuffer();
+                }
+
+
+                // Reset the front row for next wave
+                enemies.length = 0;
+                game.updateWavesPassed();
             }
         }
     }

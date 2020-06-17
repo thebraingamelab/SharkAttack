@@ -6,7 +6,8 @@
 body { 
     margin: 0; 
     padding: 0;
-    background-color: rgb(109, 175, 53);
+    /*background-color: rgb(109, 175, 53);*/
+    background-color: #044c26;
 }
 
 audio {
@@ -110,7 +111,8 @@ audio {
 
 canvas {
     position: absolute;
-    background: rgb(109, 175, 53);
+    /*background: rgb(109, 175, 53);*/
+    background-color: #044c26;
     outline: 8px solid black;
 }
 
