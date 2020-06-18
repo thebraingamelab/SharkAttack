@@ -696,6 +696,9 @@
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+        
+        let _fogSize = (GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
+        let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _fogSize, 438, 294, 1, 0, 0, 0);
 
         // Audio
         let _audioContext;
@@ -738,6 +741,7 @@
             spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
             spr_check: function() { return _spritePool.take().copyAttributes(_check); },
             spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
+            spr_fog: function() { return _spritePool.take().copyAttributes(_fog); },
 
             snd_valid: _valid,
             snd_error: _error,
