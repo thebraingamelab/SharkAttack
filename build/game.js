@@ -260,10 +260,7 @@
         this.height = height;
         this.frames = frames;
         this.frameRate = frameRate;
-        this.timer = 0;
-        this.currentFrame = 0;
         this.image = image;
-        this.animationEndEvent = null;
 
         return this;
     };
@@ -302,8 +299,6 @@
         this.height = height;
         this.frameRate = 0;
         this.frames = 1;
-        this.timer = 0;
-        this.currentFrame = 0;
         this.image = image;
 
         return this;
@@ -696,7 +691,7 @@
         let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
         _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
         //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
-        let _tiledGrass = _spritePool.take().eventDriven("build/sprites/grassland-real.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 896, 1, 0, 0, 0);
+        let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
         let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
@@ -1286,8 +1281,6 @@
                     enemy.width = enemy.sprite.width;
                     enemy.height = enemy.sprite.width;
                     enemy.isFake = true;
-                    enemy.triggeredWave = false;
-                    enemy.triggeredPause = false;
 
                     cloneList[i] = enemy;
                     _addEntity(enemy);
@@ -1382,8 +1375,6 @@
                 enemy.width = enemy.sprite.width;
                 enemy.height = enemy.sprite.height;
                 enemy.isFake = false;
-                enemy.triggeredWave = false;
-                enemy.triggeredPause = false;
 
                 _addEntity(enemy);
 
@@ -1473,8 +1464,6 @@
                     enemy.height = enemy.sprite.height;
                     enemy.sprite.draw = false;
                     enemy.isFake = true;
-                    enemy.triggeredWave = false;
-                    enemy.triggeredPause = false;
 
                     cloneList[i] = enemy;
                     _addEntity(enemy);
@@ -1789,7 +1778,8 @@
                             _spawnMode === MODES.single ||
                             (_spawnMode === MODES.graves && !entity.isFake)
                             ) &&
-                         entity.y >= entity.invisPointY) {
+                         entity.y >= entity.invisPointY &&
+                         !entity.clicked) {
 
                     // When spawning clones, make clones.draw = true
                     // When spawning singles, make the singles.draw = false
