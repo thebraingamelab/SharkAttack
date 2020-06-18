@@ -812,7 +812,7 @@
         let _startBtn = document.getElementById("start_button");
 
         let _canvas = document.getElementById("gameWindow");
-        let _context = _canvas.getContext("2d");
+        let _context = _canvas.getContext("2d", { alpha: false });
 
         let _currentHeight = GAME_FIELD_HEIGHT;
         let _currentWidth = GAME_FIELD_WIDTH;
