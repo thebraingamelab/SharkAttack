@@ -389,6 +389,9 @@
         this.x = x;
         this.y = y;
 
+        this.xFraction = 0;
+        this.yFraction = 0;
+
         this.time = 0;
 
         this.width = width;
@@ -405,6 +408,9 @@
     Entity.prototype.init = function () {
         this.x = 0;
         this.y = 0;
+        this.xFraction = 0;
+        this.yFraction = 0;
+
         this.time = 0;
         this.sprite = null;
     };
@@ -415,7 +421,32 @@
 
     // Update time step
     Entity.prototype.update = function (dt) {
+        let newX = this.x;
+        let newY = this.y;
+        let xFrac = this.xFraction;
+        let yFrac= this.yFraction;
+
         this.time += dt;
+
+        // Apply any fractions
+        newX += xFrac;
+        newY += yFrac;
+
+        // Convert x and y to whole numbers and store leftover fractions
+        xFrac = newX % 1;
+        yFrac = newY % 1;
+
+        newX -= xFrac;
+        newY -= yFrac;
+
+        // Finalize changes
+        this.x = newX;
+        this.y = newY;
+
+        this.xFraction = xFrac;
+        this.yFraction = yFrac;
+
+
     };
     
     // Entity rectangle collision
