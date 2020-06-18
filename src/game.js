@@ -367,7 +367,6 @@
         this.frames = otherSprite.frames;
         this.image = otherSprite.image;
         this.animationEndEvent = otherSprite.animationEndEvent;
-        this.layers = otherSprite.layers;
         this.draw = otherSprite.draw;
         this.alpha = otherSprite.alpha;
         this.fadeAmt = otherSprite.fadeAmt;
@@ -792,7 +791,16 @@
                 }
             },
 
-            putSpriteBack: function(spr) { _spritePool.putBack(spr); }
+            putSpriteBack: function(spr) { 
+                let i;
+
+                for (i = spr.layers.length; i >= 0; i--) {
+                    _spritePool.putBack(spr.layers[i]);
+                    //spr.layers.length--;
+                }
+
+                _spritePool.putBack(spr);
+            }
         };
     })();
 
@@ -1648,16 +1656,9 @@
             for (i = len-1; i >= 0; i--) {
                 let entityToRemove = entitiesToRemove[i];
                 let idxToRemove;
-                let layers;
 
                 // Put back the entity's sprite (and each of its layers)
                 if (entityToRemove.sprite !== null) {
-                    layers = entityToRemove.sprite.layers;
-
-                    // Layers
-                    for (j = 0; j < layers.length; j++) {
-                        resources.putSpriteBack(layers[i]);
-                    }
 
                     // Original sprite
                     resources.putSpriteBack(entityToRemove.sprite);
@@ -2065,9 +2066,11 @@
                 // Disable input for now, so player can't click multiple enemies in one go
                 game.toggleInput();
 
+                // Put the sprite back since we are changing it anyway
+                resources.putSpriteBack(intendedEnemy.sprite);
+
                 // If the clicked enemy is fake, lose life, reset multiplier
                 if (intendedEnemy.isFake) {
-                    //resources.putSpriteBack(enemy.sprite);
                     intendedEnemy.sprite = resources.spr_bigX();
                     player.loseLife();
                     game.inputTimer.reset();
@@ -2077,7 +2080,6 @@
 
                 // It's real! Gain a life
                 else {
-                    //resources.putSpriteBack(enemy.sprite);
                     intendedEnemy.sprite = resources.spr_check();
                     player.addLife();
                     game.inputTimer.stop();
