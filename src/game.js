@@ -11,15 +11,6 @@
         return Math.min(Math.max(number, min), max);
     }
 
-    // function getEventTarget
-    // Input: e, the event
-    // Side effects: none
-    // Returns: the target of the event
-    function getEventTarget(e) {
-        e = e || window.event;
-        return e.target || e.srcElement;
-    }
-
     // Random Integer, 0 thru max - 1
     function randomInt(max) {
         return Math.floor(Math.random() * Math.floor(max));
