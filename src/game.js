@@ -218,6 +218,7 @@
         this.animationEndEvent = null;
         this.layers = [];
         this.draw = true;
+        this.foreground = false;
         this.alpha = 1;
         this.fadeAmt = 0;
     }
@@ -340,6 +341,7 @@
         this.image = null;
         this.animationEndEvent = null;
         this.draw = true;
+        this.foreground = false;
     };
 
     Sprite.prototype.clone = function () {
@@ -356,6 +358,7 @@
         this.draw = otherSprite.draw;
         this.alpha = otherSprite.alpha;
         this.fadeAmt = otherSprite.fadeAmt;
+        this.foreground = otherSprite.foreground;
 
         return this;
     };
@@ -689,7 +692,7 @@
         let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
         
         let _fogSize = (GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
-        let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _fogSize, 438, 294, 1, 0, 0, 0);
+        let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _fogSize, 438, 266, 1, 0, 0, 0);
 
         // Audio
         let _audioContext;
@@ -811,6 +814,8 @@
 
         let _currentHeight = GAME_FIELD_HEIGHT;
         let _currentWidth = GAME_FIELD_WIDTH;
+
+        let _fgObjects = [];
         
         // Adjust initial canvas size
         _canvas.width = GAME_FIELD_WIDTH;
@@ -1044,15 +1049,19 @@
 
                 // Only render the enemy if it actually has a sprite to render
                 if (entity.sprite) {
-
                     // Update the sprite animation if the game is not paused
                     // TempEntity objects should animate even when paused
                     if (game.accelerating() || entity instanceof TempEntity || entity.sprite.fadeAmt !== 0) {
                         entity.sprite.update(dt);
                     }
 
+                    // Save foreground sprites for drawing after everyone else
+                    if (entity.sprite.foreground) {
+                        _fgObjects.push(entity);
+                    }
+
                     // Use different positioning for temp entities
-                    if (entity instanceof TempEntity) {
+                    else if (entity instanceof TempEntity) {
                         _drawSprite(entity.sprite, entity.x + entity.width/4, entity.y);
                     }
 
@@ -1062,6 +1071,12 @@
                     }
                 }
             }
+
+            for (i = 0; i < _fgObjects.length; i++) {
+                entity = _fgObjects[i];
+                _drawSprite(entity.sprite, entity.x, entity.y);
+            }
+            _fgObjects.length = 0;
         }
 
         return {
@@ -1108,7 +1123,7 @@
         let _started = false;
         let _gameOver;
 
-        let _spawnMode = 3;
+        let _spawnMode = MODES.graves;
         let _easyAccuracy = false;
 
         let _updateFunc;
@@ -1167,7 +1182,9 @@
             let tutorialEvents;
             let tutorialCounter;
 
-            let spawn;
+            let spawnFunction;
+
+            let fog1, fog2, fog3;
 
             function updateWavesPassed() {
                 wavesPassed++;
@@ -1183,18 +1200,30 @@
                 tutorialEvents = [];
                 tutorialCounter = 0;
 
+                fog1 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
+                fog2 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
+                fog3 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
+
+                fog1.sprite.foreground = true;
+                fog2.sprite.foreground = true;
+                fog3.sprite.foreground = true;
+
+                _addEntity(fog1);
+                _addEntity(fog2);
+                _addEntity(fog3);
+
                 // Initialize to something that enemies will never reach
                 invisTurningPoint = GAME_FIELD_HEIGHT * 2;
 
                 switch(_spawnMode) {
                     case MODES.single:
-                        spawn = singleSpawn;
+                        spawnFunction = singleSpawn;
                         break;
                     case MODES.clones:
-                        spawn = cloneSpawn;
+                        spawnFunction = cloneSpawn;
                         break;
                     case MODES.graves:
-                        spawn = graveSpawn;
+                        spawnFunction = graveSpawn;
                 }
             }
             
@@ -1203,6 +1232,38 @@
                 let isTutorialWave = false;
 
                 // numClones === number of graves
+                console.log(wavesPassed);
+
+                // Fog events
+                switch(wavesPassed) {
+                    case 4:
+                        fog1.x = 0;
+                        fog1.y = invisTurningPoint-_newWaveThreshold+20;
+                        fog1.sprite.alpha = 0;
+                        fog1.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 18:
+                    case 78:
+                        fog2.x = 0;
+                        fog2.y = invisTurningPoint-_newWaveThreshold+130;
+                        fog2.sprite.alpha = 0;
+                        fog2.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 33:
+                    case 118:
+                        fog3.x = 0;
+                        fog3.y = invisTurningPoint-_newWaveThreshold+130;
+                        fog3.sprite.alpha = 0;
+                        fog3.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 58:
+                        fog2.sprite.fadeAmt = -0.04;
+                        fog3.sprite.fadeAmt = -0.04;
+                        break;
+                }
 
                 // Wave events
                 switch(wavesSpawned) {
@@ -1215,7 +1276,10 @@
                     case 5:
                     case 6:
                     case 7:
+                        // Increase graves
                         numClones = 1;
+                        
+                        // Start disappearing
                         invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
                         isTutorialWave = true;
                         break;
@@ -1228,29 +1292,29 @@
                         invisTurningPoint = GAME_FIELD_HEIGHT / 3;
                         break;
 
-                    case 80:
+                    case 60:
                         numClones = 2;
                         invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
                         break;
 
-                    case 100:
+                    case 80:
                         invisTurningPoint = GAME_FIELD_HEIGHT / 2;
                         break;
 
-                    case 140:
+                    case 130:
                         invisTurningPoint = GAME_FIELD_HEIGHT / 3;
                         break;
 
-                    case 220:
+                    case 200:
                         numClones = 3;
                         invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
                         break;
 
-                    case 240:
+                    case 220:
                         invisTurningPoint = GAME_FIELD_HEIGHT / 2;
                         break;
 
-                    case 350:
+                    case 330:
                         invisTurningPoint = GAME_FIELD_HEIGHT / 3;
                         break;
 
@@ -1501,7 +1565,7 @@
                 init: init,
                 updateWavesPassed: updateWavesPassed,
                 showTutorial: showTutorial,
-                spawn: function() { spawn(); },
+                spawn: function() { spawnFunction(); },
                 wavesPassed: function() { return wavesPassed; }
             };
         })();
