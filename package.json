@@ -1,8 +1,8 @@
 {
-  "name": "game",
+  "name": "nback",
   "version": "1.0.0",
-  "description": "Practice learning grunt and overall JavaScript",
-  "main": "website.html",
+  "description": "URSI project under Joshua de Leeuw ",
+  "main": "index.html",
   "author": "Spencer Lee",
   "devDependencies": {
     "grunt": "^1.0.4",

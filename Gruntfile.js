@@ -23,11 +23,13 @@ module.exports = function(grunt) {
 
         concat: {
           options: {
-            separator: ';\n'
+            separator: ';\n',
+            banner: '(function(){\n"use strict";\n',
+            footer: '\n})();'
           },
 
           build: {
-            src: 'src/**/*.js',
+            src: ['src/helpers.js', 'src/classes.js', 'src/resources.js', 'src/renderer.js', 'src/game.js', 'src/input.js'],
             dest: 'build/<%= pkg.name %>.js'
           }
         },
