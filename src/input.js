@@ -1,12 +1,6 @@
 //////////////////////////////////////
 // Input Handling
 ///////////////////////////////////////
-let clickBoxSize = 32;
-let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize+10);
-
-let lastEvent = null;
-let eventTime = null;
-let inputDeviceSwapTime = 1000;
 
 ///////////////////////////////////////
 // Touch
@@ -201,8 +195,8 @@ function getRelativeEventCoords(event) {
     let y = event.pageY - getOffsetTop(renderer.canvas);
 
     return {
-        x: x/scale,
-        y: y/scale
+        x: x*scale,
+        y: y*scale
     };
 }
 

@@ -589,8 +589,3 @@ Sound.prototype.play = function() {
         }, 50);
     }
 };
-
-
-const GAME_FIELD_HEIGHT = 960;
-const GAME_FIELD_WIDTH = 540;
-const GAME_SPEED = 20;

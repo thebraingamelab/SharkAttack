@@ -2,7 +2,7 @@
 // Helper functions/objects
 ///////////////////////////////////////
 
-// clamp between two values
+// Clamp between two values
 function clamp(number, min, max) {
     return Math.min(Math.max(number, min), max);
 }

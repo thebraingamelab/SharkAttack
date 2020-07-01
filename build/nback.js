@@ -1,10 +1,20 @@
 (function(){
 "use strict";
+const GAME_FIELD_HEIGHT = 960;
+const GAME_FIELD_WIDTH = 540;
+const GAME_SPEED = 20;
+
+let clickBoxSize = 32;
+let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize+10);
+
+let lastEvent = null;
+let eventTime = null;
+let inputDeviceSwapTime = 1000;;
 ///////////////////////////////////////
 // Helper functions/objects
 ///////////////////////////////////////
 
-// clamp between two values
+// Clamp between two values
 function clamp(number, min, max) {
     return Math.min(Math.max(number, min), max);
 }
@@ -647,12 +657,7 @@ Sound.prototype.play = function() {
             thisObject.play();
         }, 50);
     }
-};
-
-
-const GAME_FIELD_HEIGHT = 960;
-const GAME_FIELD_WIDTH = 540;
-const GAME_SPEED = 20;;
+};;
 ///////////////////////////////////////
 // Resources
 ///////////////////////////////////////
@@ -1995,12 +2000,6 @@ let game = (function() {
 //////////////////////////////////////
 // Input Handling
 ///////////////////////////////////////
-let clickBoxSize = 32;
-let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, clickBoxSize+10);
-
-let lastEvent = null;
-let eventTime = null;
-let inputDeviceSwapTime = 1000;
 
 ///////////////////////////////////////
 // Touch
