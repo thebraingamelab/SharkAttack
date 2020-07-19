@@ -1,7 +1,9 @@
-(function(){
+;(function(){
 "use strict";
-const GAME_FIELD_HEIGHT = 960;
-const GAME_FIELD_WIDTH = 540;
+resizer.init();
+
+const GAME_FIELD_HEIGHT = resizer.getGameHeight();
+const GAME_FIELD_WIDTH = resizer.getGameWidth();
 const GAME_SPEED = 20;
 
 let clickBoxSize = 32;
@@ -9,10 +11,77 @@ let clickBox = new Rectangle(-1*clickBoxSize, -1*clickBoxSize, clickBoxSize, cli
 
 let lastEvent = null;
 let eventTime = null;
-let inputDeviceSwapTime = 1000;;
+let inputDeviceSwapTime = 1000;
+
+// Get the top bar elements
+let topBar = document.getElementById("top-bar");
+let pauseBox = document.getElementById("pause-box");
+let helpBox = document.getElementById("help-box");
+
+let pauseBtn = document.getElementById("pause");
+let helpBtn = document.getElementById("help");
+
+// Menu elements
+let pauseMenu = document.getElementById("pause-menu");
+let resumeBtn = document.getElementById("resume");
+let miniHelpBtn = document.getElementById("help-mini");
+
+let helpMenu = document.getElementById("help-menu");
+let backBtn = document.getElementById("back");
+
+let dimmer = document.getElementById("dimmer");
+
+// Dimension value for top bar buttons
+let boxSize;;
 ///////////////////////////////////////
 // Helper functions/objects
 ///////////////////////////////////////
+
+// Animates a menu to pop out and remain visible
+function showMenu(menuElement) {
+
+    // Show the menu
+    menuElement.classList.remove("center-popin");
+    menuElement.classList.add("center-popout");
+
+    // Dim the background
+    dimmer.classList.remove("partial-fade-out");
+    dimmer.classList.add("partial-fade-in");
+
+    // Hide the top bar
+    topBar.style.display = "none";
+}
+
+// Animates a menu to pop in and stay invisible
+function hideMenu(menuElement) {
+    // Hide the menu
+    menuElement.classList.remove("center-popout");
+    menuElement.classList.add("center-popin");
+
+    // Undim the background
+    dimmer.classList.remove("partial-fade-in");
+    dimmer.classList.add("partial-fade-out");
+
+    // Show the top bar
+    topBar.style.display = "";
+}
+
+// Animates the current menu to pop in and stay invisible, while the
+// next menu pops out and remains visible
+function switchMenu(currentMenu, nextMenu) {
+
+    // Hide current menu
+    currentMenu.classList.remove("center-popout");
+    currentMenu.classList.add("center-popin");
+
+    // After current menu's animation ends, show next menu
+    currentMenu.addEventListener("animationend", function showNextMenu() {
+        nextMenu.classList.remove("center-popin");
+        nextMenu.classList.add("center-popout");
+
+        currentMenu.removeEventListener("animationend", showNextMenu);
+    }, false);
+}
 
 // Clamp between two values
 function clamp(number, min, max) {
@@ -44,28 +113,29 @@ function mutableRemoveIndex(array, index) {
     array.length = array.length-1;
 }
 
-// Optimizes certain event listeners by only executing the callback
-// a certain amount of time after the event *stops* firing (useful for resize)
-function debounce(func, delay, immediate) {
-    let timeout;
 
-    return function() {
-        let context = this, args = arguments;
+// Size the top bar buttons
+function resizeBarButtons() {
+    let barHeight, originalDisplay;
 
-        let later = function() {
-            timeout = null;
-            if (!immediate)
-                func.apply(context, args);
-        };
+    // Store display setting
+    originalDisplay = topBar.style.display;
 
-        let callNow = immediate && !timeout;
+    // In case top bar isn't visible (which means clientHeight === 0),
+    // temporarily make it visible to calculate true height
+    topBar.style.display = "";
+    barHeight = topBar.clientHeight;
+    topBar.style.display = originalDisplay;
 
-        clearTimeout(timeout);
-        timeout = window.setTimeout(later, delay);
+    // Box size is slightly larger than the bar (120% of height)
+    boxSize = barHeight * 1.20;
 
-        if (callNow) 
-            func.apply(context, args);
-    };
+    // Set styles
+    pauseBox.style.height = boxSize + "px";
+    pauseBox.style.width = boxSize + "px";
+
+    helpBox.style.height = boxSize + "px";
+    helpBox.style.width = boxSize + "px";
 };
 // Cloneable Pool
 function CloneablePool(template) {
@@ -683,7 +753,7 @@ let resources = (function () {
     //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
     let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    //let _life = _spritePool.take().eventDriven("build/sprites/life.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     
@@ -720,6 +790,60 @@ let resources = (function () {
     let _error = new Sound("audio/error", _audioContext, _sfxGainNode);
     let _bgm = new Sound("audio/bgm", _audioContext, _musicGainNode, true);
 
+    function _initVolume() {
+        let lastVol;
+
+        // Retrieve previous session's volume
+        if (typeof(Storage) !== "undefined") {
+            try {
+                lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
+            }
+            catch(e) {
+                console.log("Previous volume data is corrupted or missing.");
+            }
+
+
+            // Restore volume if loaded successfully
+            if (lastVol || lastVol === 0) {
+                _masterVolume = lastVol;
+                this.setMasterVolume(lastVol);
+
+                return lastVol;
+            }
+        }
+
+        // Failed. Return null
+        return null;
+    }
+    
+    function _setMasterVolume() {
+        _masterVolume = vol;
+            
+        _sfxGainNode.gain.value = _sfxVolume * vol;
+        _musicGainNode.gain.value = _musicVolume * vol;
+
+        // Save the latest volume data
+        if (typeof(Storage) !== "undefined") {
+            try {
+                localStorage.setItem('nback_masterVolume', JSON.stringify(_masterVolume));
+            }
+            catch (e) {
+                console.log("Error: an issue occurred when saving volume data.");
+            }
+        }
+    }
+
+    function _putSpriteBack(spr) {
+        let i;
+
+        for (i = spr.layers.length; i >= 0; i--) {
+            _spritePool.putBack(spr.layers[i]);
+            //spr.layers.length--;
+        }
+
+        _spritePool.putBack(spr);
+        }
+
     return {
         //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
         spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
@@ -728,7 +852,7 @@ let resources = (function () {
         spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
         spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
         spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
-        spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
+        //spr_life: function() { return _spritePool.take().copyAttributes(_life); },
         spr_check: function() { return _spritePool.take().copyAttributes(_check); },
         spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
         spr_fog: function() { return _spritePool.take().copyAttributes(_fog); },
@@ -737,59 +861,9 @@ let resources = (function () {
         snd_error: _error,
         snd_bgm: _bgm,
 
-        initVolume: function() {
-            let lastVol;
-
-            // Retrieve previous session's volume
-            if (typeof(Storage) !== "undefined") {
-                try {
-                    lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
-                }
-                catch(e) {
-                    console.log("Previous volume data is corrupted or missing.");
-                }
-
-
-                // Restore volume if loaded successfully
-                if (lastVol || lastVol === 0) {
-                    _masterVolume = lastVol;
-                    this.setMasterVolume(lastVol);
-
-                    return lastVol;
-                }
-            }
-
-            // Failed. Return null
-            return null;
-        },
-
-        setMasterVolume: function(vol) {
-            _masterVolume = vol;
-            
-            _sfxGainNode.gain.value = _sfxVolume * vol;
-            _musicGainNode.gain.value = _musicVolume * vol;
-
-            // Save the latest volume data
-            if (typeof(Storage) !== "undefined") {
-                try {
-                    localStorage.setItem('nback_masterVolume', JSON.stringify(_masterVolume));
-                }
-                catch (e) {
-                    console.log("Error: an issue occurred when saving volume data.");
-                }
-            }
-        },
-
-        putSpriteBack: function(spr) { 
-            let i;
-
-            for (i = spr.layers.length; i >= 0; i--) {
-                _spritePool.putBack(spr.layers[i]);
-                //spr.layers.length--;
-            }
-
-            _spritePool.putBack(spr);
-        }
+        initVolume: _initVolume,
+        setMasterVolume: _setMasterVolume,
+        putSpriteBack: _putSpriteBack
     };
 })();;
 ///////////////////////////////////////
@@ -797,99 +871,24 @@ let resources = (function () {
 ///////////////////////////////////////
 
 let renderer = (function () {
-    // Figure out if user device is android or ios
-    const _ua = navigator.userAgent.toLowerCase();
-    const _android = _ua.indexOf('android') > -1;
-    const _ios = /ipad|iphone|ipod/i.test(_ua) && !window.MSStream;
+    const SCORE_ELEMENT = document.getElementById("bar-label");
+    const START_BUTTON = document.getElementById("start-button");
 
+    // Variables
     let _livesDiv;
 
-    let _startBtn = document.getElementById("start_button");
-
-    let _canvas = document.getElementById("gameWindow");
+    let _canvas = resizer.getCanvas();
     let _context = _canvas.getContext("2d", { alpha: false });
 
     let _currentHeight = GAME_FIELD_HEIGHT;
     let _currentWidth = GAME_FIELD_WIDTH;
 
-    let _fgObjects = [];
     
-    // Adjust initial canvas size
-    _canvas.width = GAME_FIELD_WIDTH;
-    _canvas.height = GAME_FIELD_HEIGHT;
 
-    // Resize it according to device
-    window.addEventListener('load', _resize, false);
-    window.addEventListener('resize', debounce(_resize, 250, false), false);
+    let previousLives = 0;
+    let previousScore = 0;
 
-    function _resize() {
-        const addressBarHeight = 50;
-        let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
-        let container = document.getElementById("container");
-        let overlay = document.getElementById("overlay");
-        let widebar = document.getElementById("widebar");
-
-        // Get correct dimensions
-        _currentHeight = window.innerHeight;
-        _currentWidth = _currentHeight * ratio;
-
-        // Cancel previous livesDiv settings
-        //if(_livesDiv) {
-        //    _livesDiv.parentNode.style.display = "none";
-        //}
-
-        // Overlay the lives if there's no room up top
-        _livesDiv = document.getElementById("lives-overlay");
-        overlay.style.display = "initial";
-        overlay.style.position = "absolute";
-        overlay.style.height = "8%";
-
-        // Add enough size to scroll down 
-        // past the address bar on ios or android
-        if (_android || _ios) {
-            document.body.style.height = (window.innerHeight + addressBarHeight) + 'px';
-        }
-        else {
-            document.body.style.height = window.innerHeight+'px';
-        }
-
-        // Double check aspect ratio
-        if ( Math.floor(_currentWidth) > window.innerWidth) {
-            // resize to fit width
-            ratio = GAME_FIELD_HEIGHT / GAME_FIELD_WIDTH;
-
-            // Get correct  dimensions
-            _currentWidth = window.innerWidth;
-            _currentHeight = _currentWidth * ratio;
-
-            //overlay.style.bottom = "0";
-            overlay.style.height = (window.innerHeight - _currentHeight) + "px";
-            overlay.style.position = "fixed";
-            /* Fill extra space
-            overlay.style.display = "none";
-            widebar.style.display = "initial";
-            widebar.style.height = (window.innerHeight - _currentHeight)+'px';
-            _livesDiv = document.getElementById("lives-widebar");*/
-        }
-
-        // Adjust canvas accordingly
-        _canvas.style.width = _currentWidth + 'px';
-        _canvas.style.height = _currentHeight + 'px';
-        container.style.width = _currentWidth + 'px';
-        container.style.height = _currentHeight + 'px';
-
-        // Center the container
-        container.style.marginLeft = "-" + (_currentWidth/2) + 'px';
-
-        // Automagically scroll down to get rid
-        // of address bar
-        window.setTimeout(function() {
-                window.scrollTo(0,1);
-        }, 1);
-
-        // Update UI elements
-        _updateUI(true);
-    }
+    let _fgObjects = [];
 
     // Draw a sprite to the context
     function _drawSprite(sprite, x, y) {
@@ -962,14 +961,7 @@ let renderer = (function () {
         };
     })();
 
-    let _updateUI = (function() {
-        const LIFE_IMAGE = resources.spr_collar();
-        const SCORE_ELEMENT = document.getElementById("score");
-
-        let previousLives = 0;
-        let previousScore = 0;
-
-        return function(forceUpdate=false) {
+    function _updateUI (forceUpdate=false) {
             let numLives, score;
             let i;
 
@@ -978,14 +970,14 @@ let renderer = (function () {
                 //_livesDiv.style.display = "none";
                 
                 // Make start button disappear
-                _startBtn.style.display = "block";
+                START_BUTTON.style.display = "block";
             }
             else if (game) {
                 // Show lives
                 //_livesDiv.style.display = "flex";
 
                 // Make start button disappear
-                _startBtn.style.display = "none";
+                START_BUTTON.style.display = "none";
 
                 numLives = game.player().life;
                 score = game.score();
@@ -994,6 +986,8 @@ let renderer = (function () {
                 if (previousScore !== score || forceUpdate) {
                     previousScore = score;
                     SCORE_ELEMENT.textContent = "Score: " + score;
+                    //let dpr = window.devicePixelRatio || 1;
+                    //SCORE_ELEMENT.textContent = "DPR: " + dpr;
                 }
                 
                 // Update Player Lives
@@ -1001,7 +995,7 @@ let renderer = (function () {
 
                     previousLives = numLives;
 
-                    for (i = 0; i < _livesDiv.childNodes.length; i++) {
+                    /*for (i = 0; i < _livesDiv.childNodes.length; i++) {
                         if (_livesDiv.childNodes[i] instanceof Image) {
                             _livesDiv.removeChild(_livesDiv.childNodes[i]);
                             i--;
@@ -1015,11 +1009,10 @@ let renderer = (function () {
                         img.className = "life";
 
                         _livesDiv.appendChild(img);
-                    }
+                    }*/
                 }
             }
-        };
-    })();
+        }
 
     // Render game elements and entities
     function _render(dt) {
@@ -1079,12 +1072,7 @@ let renderer = (function () {
 
     return {
         render: _render,
-        //GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
-        //GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
-        canvas: _canvas,
-
-        isIOS: function() { return _ios; },
-        currentWidth: function () { return _currentWidth; }
+        canvas: _canvas
     };
 
 })();;
@@ -1094,13 +1082,6 @@ let renderer = (function () {
 
 let game = (function() {
     /* jshint validthis: true */
-
-    // Enumerator for spawning modes
-    const MODES = Object.freeze({
-        single: 1, 
-        clones: 2, 
-        graves: 3
-    });
 
     let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
     let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
@@ -1122,7 +1103,6 @@ let game = (function() {
     let _started = false;
     let _gameOver;
 
-    let _spawnMode = MODES.graves;
     let _easyAccuracy = false;
 
     let _updateFunc;
@@ -1181,8 +1161,6 @@ let game = (function() {
         let tutorialEvents;
         let tutorialCounter;
 
-        let spawnFunction;
-
         let fog1, fog2, fog3;
 
         function updateWavesPassed() {
@@ -1213,25 +1191,14 @@ let game = (function() {
 
             // Initialize to something that enemies will never reach
             invisTurningPoint = GAME_FIELD_HEIGHT * 2;
-
-            switch(_spawnMode) {
-                case MODES.single:
-                    spawnFunction = singleSpawn;
-                    break;
-                case MODES.clones:
-                    spawnFunction = cloneSpawn;
-                    break;
-                case MODES.graves:
-                    spawnFunction = graveSpawn;
-            }
         }
         
-        let graveSpawn = function() {
+        function spawn() {
             let enemy, realEnemy, enemyLane, i;
             let isTutorialWave = false;
 
             // numClones === number of graves
-            console.log(wavesPassed);
+            //console.log(wavesPassed);
 
             // Fog events
             switch(wavesPassed) {
@@ -1359,187 +1326,7 @@ let game = (function() {
 
             // Update number of waves spawned
             wavesSpawned++;
-        };
-
-        let singleSpawn = function() {
-            let enemy, enemyLane;
-            let isTutorialWave = false;
-
-            // Wave events
-            switch(wavesSpawned) {
-                case 0:
-                case 1:
-                case 2:
-                    isTutorialWave = true;
-                    break;
-
-                case 5:
-                case 6:
-                case 7:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    isTutorialWave = true;
-                    break;
-
-                case 20:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 35:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 80:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 100:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 140:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 220:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 240:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 350:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                default:
-                    if (wavesSpawned > 350) {
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                    }
-            }
-
-            // Choose which lane to spawn the enemy in
-            enemyLane = randomInt(_lanes.NUM_LANES);
-
-            // Make the enemy
-            enemy = _enemyPool.take();
-
-            enemy.lane = enemyLane;
-            enemy.x = _lanes.getCenterX(enemyLane);
-            enemy.y = -10;
-            enemy.speed = _enemySpeed;
-            enemy.invisPointY = invisTurningPoint;
-            enemy.sprite = resources.spr_enemy();
-            enemy.width = enemy.sprite.width;
-            enemy.height = enemy.sprite.height;
-            enemy.isFake = false;
-
-            _addEntity(enemy);
-
-            // Keep track of tutorial waves
-            if (isTutorialWave) {
-                tutorialEvents.push({lane: enemyLane, wave: wavesSpawned});
-            }
-
-            // Update number of waves spawned
-            wavesSpawned++;
-        };
-
-        let cloneSpawn = function() {
-            let enemy, realEnemy, enemyLane, i;
-            let isTutorialWave = false;
-
-            // Wave events
-            switch(wavesSpawned) {
-                case 0:
-                case 1:
-                case 2:
-                    isTutorialWave = true;
-                    break;
-
-                case 5:
-                case 6:
-                case 7:
-                    numClones = 1;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    isTutorialWave = true;
-                    break;
-
-                case 20:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 35:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 80:
-                    numClones = 2;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 100:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 140:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 220:
-                    numClones = 3;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 240:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 350:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                default:
-                    if (wavesSpawned > 350) {
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                    }
-            }
-
-            // Choose which lanes to spawn the enemies in
-            enemyLane = randomInt(_lanes.NUM_LANES - numClones);
-
-            // Make the enemy and its clone(s)
-            for (i = 0; i <= numClones; i++) {
-                enemy = _enemyPool.take();
-
-                enemy.lane = enemyLane+i;
-                enemy.x = _lanes.getCenterX(enemyLane+i);
-                enemy.y = -10;
-                enemy.speed = _enemySpeed;
-                enemy.invisPointY = invisTurningPoint;
-                enemy.sprite = resources.spr_enemy();
-                enemy.width = enemy.sprite.width;
-                enemy.height = enemy.sprite.height;
-                enemy.sprite.draw = false;
-                enemy.isFake = true;
-
-                cloneList[i] = enemy;
-                _addEntity(enemy);
-            }
-
-            // Pick one enemy to be the real one
-            realEnemy = cloneList[randomInt(cloneList.length)];
-            realEnemy.isFake = false;
-            realEnemy.sprite.draw = true;
-
-            // Keep track of tutorial waves
-            if (isTutorialWave) {
-                tutorialEvents.push({lane: realEnemy.lane, wave: wavesSpawned});
-            }
-
-            // Update number of waves spawned
-            wavesSpawned++;
-        };
+        }
 
         function showTutorial() {
 
@@ -1564,7 +1351,7 @@ let game = (function() {
             init: init,
             updateWavesPassed: updateWavesPassed,
             showTutorial: showTutorial,
-            spawn: function() { spawnFunction(); },
+            spawn: spawn,
             wavesPassed: function() { return wavesPassed; }
         };
     })();
@@ -1812,48 +1599,21 @@ let game = (function() {
 
             // About to be invisible?
             else if (entity instanceof Enemy &&
-                        ((_spawnMode === MODES.clones && entity.isFake) || 
-                        _spawnMode === MODES.single ||
-                        (_spawnMode === MODES.graves && !entity.isFake)
-                        ) &&
+                    !entity.isFake &&
                     entity.y >= alertZone &&
                     entity.y < entity.invisPointY) {
                 
                 // Begin transparency
-                if (_spawnMode === MODES.graves) {
-                    entity.sprite.alpha = 1 - ( (entity.y - alertZone) / (entity.invisPointY - alertZone) );
-                }
-
-                // Flash!
-                else {
-                    entity.sprite.draw = !entity.sprite.draw;
-                }
+                entity.sprite.alpha = 1 - ( (entity.y - alertZone) / (entity.invisPointY - alertZone) );
             }
 
             // Invisible?
             else if (entity instanceof Enemy &&
-                        ((_spawnMode === MODES.clones && entity.isFake) || 
-                        _spawnMode === MODES.single ||
-                        (_spawnMode === MODES.graves && !entity.isFake)
-                        ) &&
-                        entity.y >= entity.invisPointY &&
-                        !entity.clicked) {
+                    !entity.isFake &&
+                    entity.y >= entity.invisPointY &&
+                    !entity.clicked) {
 
-                // When spawning clones, make clones.draw = true
-                // When spawning singles, make the singles.draw = false
-                switch(_spawnMode) {
-                    case MODES.single:
-                    case MODES.graves:
-                        entity.sprite.draw = false;
-                        break;
-                    case MODES.clones:
-                        entity.sprite.draw = true;
-                        break;
-                    //case MODES.graves:
-                    //    entity.sprite.draw = true;
-                        //entity.sprite.fadeAmt = -0.02;
-                    //    break;
-                }
+                    entity.sprite.draw = false;
             }
 
             // Spawn a new wave after previous wave passed
@@ -1939,7 +1699,7 @@ let game = (function() {
                 if (successes === 1) {
                     untilMultiplierIncrease += 2;
                     _multiplier += 0.5;
-                    console.log(_multiplier + "x multipler!");
+                    //console.log(_multiplier + "x multipler!");
                 }
             }
         }
@@ -1975,7 +1735,6 @@ let game = (function() {
         updateWavesPassed: _waves.updateWavesPassed,
         toggleInput: _toggleInput,
         inputTimer: _inputTimer,
-        spawnMode: _spawnMode,
         easyAccuracy: _easyAccuracy,
         stoppingThreshold: _stoppingThreshold,
         inputEnabled: function() { return _inputEnabled; },
@@ -2063,12 +1822,12 @@ function inputHandler(event) {
     
     // Touch input
     if (event.type === "touchstart") {
-        clickLocation = getRelativeEventCoords(event.changedTouches[0]);
+        clickLocation = resizer.getRelativeEventCoords(event.changedTouches[0]);
     }
 
     // Mouse click input
     else if (event.type === "mousedown") {
-        clickLocation = getRelativeEventCoords(event);
+        clickLocation = resizer.getRelativeEventCoords(event);
     }
 
     // Only register the input if the game is running, the input location was valid,
@@ -2150,59 +1909,10 @@ function inputHandler(event) {
     }
 }
 
-// Get left offset of element
-function getOffsetLeft(elem) {
-    let offsetLeft = 0;
-
-    // Add px to left offset...
-    do {
-        if( !isNaN(elem.offsetLeft) ) {
-            offsetLeft += elem.offsetLeft;
-        }
-
-        // for each elem until there's no more parent element
-        elem = elem.offsetParent;
-    } while(elem !== null);
-
-    // Return left offset
-    return offsetLeft;
-}
-
-// Get top offset of element
-function getOffsetTop(elem) {
-    let offsetTop = 0;
-
-    do {
-        if( !isNaN(elem.offsetTop) ) {
-            offsetTop += elem.offsetTop;
-        }
-
-        elem = elem.offsetParent;
-    } while(elem !== null);
-
-    return offsetTop;
-}
-
-// Return object with event (touch/click) location 
-// x and y in game coords
-function getRelativeEventCoords(event) {
-    // Scale coords correctly
-    let scale = renderer.currentWidth() / GAME_FIELD_WIDTH;
-
-    // Get x and y values
-    let x = event.pageX - getOffsetLeft(renderer.canvas);
-    let y = event.pageY - getOffsetTop(renderer.canvas);
-
-    return {
-        x: x/scale,
-        y: y/scale
-    };
-}
-
 ///////////////////////////////////////
 // Main Logic
 ///////////////////////////////////////
-
+/*
 function volHandler(label, slider) {
     // Convert slider value to a number (from a string)
     let vol = slider.value;
@@ -2275,16 +1985,10 @@ else {
         e.preventDefault();
         volHandler(widebarLabel, widebarSlider);
     });
-}
+}*/
 
 // Start the game when the button is clicked
-document.getElementById("start_button").addEventListener("click", 
-function() {
-    // Start background music
-    resources.snd_bgm.play();
-
-    game.start();
-});
+document.getElementById("start-button").addEventListener("click", function() { game.start(); });
 
 // Prevent stuff like user scrolling
 // Passive: false is required for it to register
@@ -2293,7 +1997,7 @@ document.body.addEventListener("touchmove", function (e) {
 }, { passive: false });
 
 
-// Load event for everything
+/*/ Load event for everything
 window.addEventListener("load", function() {
     // Ensure volume is still what it's supposed to be
     let lastVol = resources.initVolume();
@@ -2308,5 +2012,30 @@ window.addEventListener("load", function() {
     }
     
     document.getElementById("container").style.display = "block";
-}, false);
+}, false);*/
+
+//////////////////////////
+// Resize events
+//////////////////////////
+
+// Every time the Resizer resizes things, do some extra
+// recaculations to position the sample button in the center
+resizer.addResizeEvent(resizeBarButtons);
+
+// Manual resize to ensure that our resize functions are executed
+// (could have also just called resizerBarButtons() but this will do for demonstration purposes)
+resizer.resize();
+
+
+//////////////////////////
+// Button events
+//////////////////////////
+
+pauseBtn.addEventListener("click", function() { showMenu(pauseMenu); }, false);
+resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
+miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
+
+
+helpBtn.addEventListener("click", function() { showMenu(helpMenu); }, false);
+backBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
 })();

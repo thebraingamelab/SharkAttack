@@ -23,7 +23,7 @@ let resources = (function () {
     //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
     let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _collar = _spritePool.take().eventDriven("build/sprites/collar.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    //let _life = _spritePool.take().eventDriven("build/sprites/life.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     
@@ -60,6 +60,60 @@ let resources = (function () {
     let _error = new Sound("audio/error", _audioContext, _sfxGainNode);
     let _bgm = new Sound("audio/bgm", _audioContext, _musicGainNode, true);
 
+    function _initVolume() {
+        let lastVol;
+
+        // Retrieve previous session's volume
+        if (typeof(Storage) !== "undefined") {
+            try {
+                lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
+            }
+            catch(e) {
+                console.log("Previous volume data is corrupted or missing.");
+            }
+
+
+            // Restore volume if loaded successfully
+            if (lastVol || lastVol === 0) {
+                _masterVolume = lastVol;
+                this.setMasterVolume(lastVol);
+
+                return lastVol;
+            }
+        }
+
+        // Failed. Return null
+        return null;
+    }
+    
+    function _setMasterVolume() {
+        _masterVolume = vol;
+            
+        _sfxGainNode.gain.value = _sfxVolume * vol;
+        _musicGainNode.gain.value = _musicVolume * vol;
+
+        // Save the latest volume data
+        if (typeof(Storage) !== "undefined") {
+            try {
+                localStorage.setItem('nback_masterVolume', JSON.stringify(_masterVolume));
+            }
+            catch (e) {
+                console.log("Error: an issue occurred when saving volume data.");
+            }
+        }
+    }
+
+    function _putSpriteBack(spr) {
+        let i;
+
+        for (i = spr.layers.length; i >= 0; i--) {
+            _spritePool.putBack(spr.layers[i]);
+            //spr.layers.length--;
+        }
+
+        _spritePool.putBack(spr);
+        }
+
     return {
         //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
         spr_enemy: function() { return _spritePool.take().copyAttributes(_enemySprite); },
@@ -68,7 +122,7 @@ let resources = (function () {
         spr_tapIcon: function() { return _spritePool.take().copyAttributes(_tapIcon); },
         spr_tiledGrass: function() { return _spritePool.take().copyAttributes(_tiledGrass); },
         spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
-        spr_collar: function() { return _spritePool.take().copyAttributes(_collar); },
+        //spr_life: function() { return _spritePool.take().copyAttributes(_life); },
         spr_check: function() { return _spritePool.take().copyAttributes(_check); },
         spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
         spr_fog: function() { return _spritePool.take().copyAttributes(_fog); },
@@ -77,58 +131,8 @@ let resources = (function () {
         snd_error: _error,
         snd_bgm: _bgm,
 
-        initVolume: function() {
-            let lastVol;
-
-            // Retrieve previous session's volume
-            if (typeof(Storage) !== "undefined") {
-                try {
-                    lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
-                }
-                catch(e) {
-                    console.log("Previous volume data is corrupted or missing.");
-                }
-
-
-                // Restore volume if loaded successfully
-                if (lastVol || lastVol === 0) {
-                    _masterVolume = lastVol;
-                    this.setMasterVolume(lastVol);
-
-                    return lastVol;
-                }
-            }
-
-            // Failed. Return null
-            return null;
-        },
-
-        setMasterVolume: function(vol) {
-            _masterVolume = vol;
-            
-            _sfxGainNode.gain.value = _sfxVolume * vol;
-            _musicGainNode.gain.value = _musicVolume * vol;
-
-            // Save the latest volume data
-            if (typeof(Storage) !== "undefined") {
-                try {
-                    localStorage.setItem('nback_masterVolume', JSON.stringify(_masterVolume));
-                }
-                catch (e) {
-                    console.log("Error: an issue occurred when saving volume data.");
-                }
-            }
-        },
-
-        putSpriteBack: function(spr) { 
-            let i;
-
-            for (i = spr.layers.length; i >= 0; i--) {
-                _spritePool.putBack(spr.layers[i]);
-                //spr.layers.length--;
-            }
-
-            _spritePool.putBack(spr);
-        }
+        initVolume: _initVolume,
+        setMasterVolume: _setMasterVolume,
+        putSpriteBack: _putSpriteBack
     };
 })();

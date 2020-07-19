@@ -64,12 +64,12 @@ function inputHandler(event) {
     
     // Touch input
     if (event.type === "touchstart") {
-        clickLocation = getRelativeEventCoords(event.changedTouches[0]);
+        clickLocation = resizer.getRelativeEventCoords(event.changedTouches[0]);
     }
 
     // Mouse click input
     else if (event.type === "mousedown") {
-        clickLocation = getRelativeEventCoords(event);
+        clickLocation = resizer.getRelativeEventCoords(event);
     }
 
     // Only register the input if the game is running, the input location was valid,
@@ -151,59 +151,10 @@ function inputHandler(event) {
     }
 }
 
-// Get left offset of element
-function getOffsetLeft(elem) {
-    let offsetLeft = 0;
-
-    // Add px to left offset...
-    do {
-        if( !isNaN(elem.offsetLeft) ) {
-            offsetLeft += elem.offsetLeft;
-        }
-
-        // for each elem until there's no more parent element
-        elem = elem.offsetParent;
-    } while(elem !== null);
-
-    // Return left offset
-    return offsetLeft;
-}
-
-// Get top offset of element
-function getOffsetTop(elem) {
-    let offsetTop = 0;
-
-    do {
-        if( !isNaN(elem.offsetTop) ) {
-            offsetTop += elem.offsetTop;
-        }
-
-        elem = elem.offsetParent;
-    } while(elem !== null);
-
-    return offsetTop;
-}
-
-// Return object with event (touch/click) location 
-// x and y in game coords
-function getRelativeEventCoords(event) {
-    // Scale coords correctly
-    let scale = renderer.currentWidth() / GAME_FIELD_WIDTH;
-
-    // Get x and y values
-    let x = event.pageX - getOffsetLeft(renderer.canvas);
-    let y = event.pageY - getOffsetTop(renderer.canvas);
-
-    return {
-        x: x*scale,
-        y: y*scale
-    };
-}
-
 ///////////////////////////////////////
 // Main Logic
 ///////////////////////////////////////
-
+/*
 function volHandler(label, slider) {
     // Convert slider value to a number (from a string)
     let vol = slider.value;
@@ -276,16 +227,10 @@ else {
         e.preventDefault();
         volHandler(widebarLabel, widebarSlider);
     });
-}
+}*/
 
 // Start the game when the button is clicked
-document.getElementById("start_button").addEventListener("click", 
-function() {
-    // Start background music
-    resources.snd_bgm.play();
-
-    game.start();
-});
+document.getElementById("start-button").addEventListener("click", function() { game.start(); });
 
 // Prevent stuff like user scrolling
 // Passive: false is required for it to register
@@ -294,7 +239,7 @@ document.body.addEventListener("touchmove", function (e) {
 }, { passive: false });
 
 
-// Load event for everything
+/*/ Load event for everything
 window.addEventListener("load", function() {
     // Ensure volume is still what it's supposed to be
     let lastVol = resources.initVolume();
@@ -309,4 +254,29 @@ window.addEventListener("load", function() {
     }
     
     document.getElementById("container").style.display = "block";
-}, false);
+}, false);*/
+
+//////////////////////////
+// Resize events
+//////////////////////////
+
+// Every time the Resizer resizes things, do some extra
+// recaculations to position the sample button in the center
+resizer.addResizeEvent(resizeBarButtons);
+
+// Manual resize to ensure that our resize functions are executed
+// (could have also just called resizerBarButtons() but this will do for demonstration purposes)
+resizer.resize();
+
+
+//////////////////////////
+// Button events
+//////////////////////////
+
+pauseBtn.addEventListener("click", function() { showMenu(pauseMenu); }, false);
+resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
+miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
+
+
+helpBtn.addEventListener("click", function() { showMenu(helpMenu); }, false);
+backBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);

@@ -24,7 +24,7 @@ module.exports = function(grunt) {
         concat: {
           options: {
             separator: ';\n',
-            banner: '(function(){\n"use strict";\n',
+            banner: ';(function(){\n"use strict";\n',
             footer: '\n})();'
           },
 

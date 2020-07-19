@@ -3,99 +3,24 @@
 ///////////////////////////////////////
 
 let renderer = (function () {
-    // Figure out if user device is android or ios
-    const _ua = navigator.userAgent.toLowerCase();
-    const _android = _ua.indexOf('android') > -1;
-    const _ios = /ipad|iphone|ipod/i.test(_ua) && !window.MSStream;
+    const SCORE_ELEMENT = document.getElementById("bar-label");
+    const START_BUTTON = document.getElementById("start-button");
 
+    // Variables
     let _livesDiv;
 
-    let _startBtn = document.getElementById("start_button");
-
-    let _canvas = document.getElementById("gameWindow");
+    let _canvas = resizer.getCanvas();
     let _context = _canvas.getContext("2d", { alpha: false });
 
     let _currentHeight = GAME_FIELD_HEIGHT;
     let _currentWidth = GAME_FIELD_WIDTH;
 
-    let _fgObjects = [];
     
-    // Adjust initial canvas size
-    _canvas.width = GAME_FIELD_WIDTH;
-    _canvas.height = GAME_FIELD_HEIGHT;
 
-    // Resize it according to device
-    window.addEventListener('load', _resize, false);
-    window.addEventListener('resize', debounce(_resize, 250, false), false);
+    let previousLives = 0;
+    let previousScore = 0;
 
-    function _resize() {
-        const addressBarHeight = 50;
-        let ratio = GAME_FIELD_WIDTH / GAME_FIELD_HEIGHT;
-        let container = document.getElementById("container");
-        let overlay = document.getElementById("overlay");
-        let widebar = document.getElementById("widebar");
-
-        // Get correct dimensions
-        _currentHeight = window.innerHeight;
-        _currentWidth = _currentHeight * ratio;
-
-        // Cancel previous livesDiv settings
-        //if(_livesDiv) {
-        //    _livesDiv.parentNode.style.display = "none";
-        //}
-
-        // Overlay the lives if there's no room up top
-        _livesDiv = document.getElementById("lives-overlay");
-        overlay.style.display = "initial";
-        overlay.style.position = "absolute";
-        overlay.style.height = "8%";
-
-        // Add enough size to scroll down 
-        // past the address bar on ios or android
-        if (_android || _ios) {
-            document.body.style.height = (window.innerHeight + addressBarHeight) + 'px';
-        }
-        else {
-            document.body.style.height = window.innerHeight+'px';
-        }
-
-        // Double check aspect ratio
-        if ( Math.floor(_currentWidth) > window.innerWidth) {
-            // resize to fit width
-            ratio = GAME_FIELD_HEIGHT / GAME_FIELD_WIDTH;
-
-            // Get correct  dimensions
-            _currentWidth = window.innerWidth;
-            _currentHeight = _currentWidth * ratio;
-
-            //overlay.style.bottom = "0";
-            overlay.style.height = (window.innerHeight - _currentHeight) + "px";
-            overlay.style.position = "fixed";
-            /* Fill extra space
-            overlay.style.display = "none";
-            widebar.style.display = "initial";
-            widebar.style.height = (window.innerHeight - _currentHeight)+'px';
-            _livesDiv = document.getElementById("lives-widebar");*/
-        }
-
-        // Adjust canvas accordingly
-        _canvas.style.width = _currentWidth + 'px';
-        _canvas.style.height = _currentHeight + 'px';
-        container.style.width = _currentWidth + 'px';
-        container.style.height = _currentHeight + 'px';
-
-        // Center the container
-        container.style.marginLeft = "-" + (_currentWidth/2) + 'px';
-
-        // Automagically scroll down to get rid
-        // of address bar
-        window.setTimeout(function() {
-                window.scrollTo(0,1);
-        }, 1);
-
-        // Update UI elements
-        _updateUI(true);
-    }
+    let _fgObjects = [];
 
     // Draw a sprite to the context
     function _drawSprite(sprite, x, y) {
@@ -168,14 +93,7 @@ let renderer = (function () {
         };
     })();
 
-    let _updateUI = (function() {
-        const LIFE_IMAGE = resources.spr_collar();
-        const SCORE_ELEMENT = document.getElementById("score");
-
-        let previousLives = 0;
-        let previousScore = 0;
-
-        return function(forceUpdate=false) {
+    function _updateUI (forceUpdate=false) {
             let numLives, score;
             let i;
 
@@ -184,14 +102,14 @@ let renderer = (function () {
                 //_livesDiv.style.display = "none";
                 
                 // Make start button disappear
-                _startBtn.style.display = "block";
+                START_BUTTON.style.display = "block";
             }
             else if (game) {
                 // Show lives
                 //_livesDiv.style.display = "flex";
 
                 // Make start button disappear
-                _startBtn.style.display = "none";
+                START_BUTTON.style.display = "none";
 
                 numLives = game.player().life;
                 score = game.score();
@@ -200,6 +118,8 @@ let renderer = (function () {
                 if (previousScore !== score || forceUpdate) {
                     previousScore = score;
                     SCORE_ELEMENT.textContent = "Score: " + score;
+                    //let dpr = window.devicePixelRatio || 1;
+                    //SCORE_ELEMENT.textContent = "DPR: " + dpr;
                 }
                 
                 // Update Player Lives
@@ -207,7 +127,7 @@ let renderer = (function () {
 
                     previousLives = numLives;
 
-                    for (i = 0; i < _livesDiv.childNodes.length; i++) {
+                    /*for (i = 0; i < _livesDiv.childNodes.length; i++) {
                         if (_livesDiv.childNodes[i] instanceof Image) {
                             _livesDiv.removeChild(_livesDiv.childNodes[i]);
                             i--;
@@ -221,11 +141,10 @@ let renderer = (function () {
                         img.className = "life";
 
                         _livesDiv.appendChild(img);
-                    }
+                    }*/
                 }
             }
-        };
-    })();
+        }
 
     // Render game elements and entities
     function _render(dt) {
@@ -285,12 +204,7 @@ let renderer = (function () {
 
     return {
         render: _render,
-        //GAME_FIELD_WIDTH: GAME_FIELD_WIDTH,
-        //GAME_FIELD_HEIGHT: GAME_FIELD_HEIGHT,
-        canvas: _canvas,
-
-        isIOS: function() { return _ios; },
-        currentWidth: function () { return _currentWidth; }
+        canvas: _canvas
     };
 
 })();

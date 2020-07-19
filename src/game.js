@@ -5,13 +5,6 @@
 let game = (function() {
     /* jshint validthis: true */
 
-    // Enumerator for spawning modes
-    const MODES = Object.freeze({
-        single: 1, 
-        clones: 2, 
-        graves: 3
-    });
-
     let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
     let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
 
@@ -32,7 +25,6 @@ let game = (function() {
     let _started = false;
     let _gameOver;
 
-    let _spawnMode = MODES.graves;
     let _easyAccuracy = false;
 
     let _updateFunc;
@@ -91,8 +83,6 @@ let game = (function() {
         let tutorialEvents;
         let tutorialCounter;
 
-        let spawnFunction;
-
         let fog1, fog2, fog3;
 
         function updateWavesPassed() {
@@ -123,25 +113,14 @@ let game = (function() {
 
             // Initialize to something that enemies will never reach
             invisTurningPoint = GAME_FIELD_HEIGHT * 2;
-
-            switch(_spawnMode) {
-                case MODES.single:
-                    spawnFunction = singleSpawn;
-                    break;
-                case MODES.clones:
-                    spawnFunction = cloneSpawn;
-                    break;
-                case MODES.graves:
-                    spawnFunction = graveSpawn;
-            }
         }
         
-        let graveSpawn = function() {
+        function spawn() {
             let enemy, realEnemy, enemyLane, i;
             let isTutorialWave = false;
 
             // numClones === number of graves
-            console.log(wavesPassed);
+            //console.log(wavesPassed);
 
             // Fog events
             switch(wavesPassed) {
@@ -269,187 +248,7 @@ let game = (function() {
 
             // Update number of waves spawned
             wavesSpawned++;
-        };
-
-        let singleSpawn = function() {
-            let enemy, enemyLane;
-            let isTutorialWave = false;
-
-            // Wave events
-            switch(wavesSpawned) {
-                case 0:
-                case 1:
-                case 2:
-                    isTutorialWave = true;
-                    break;
-
-                case 5:
-                case 6:
-                case 7:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    isTutorialWave = true;
-                    break;
-
-                case 20:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 35:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 80:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 100:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 140:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 220:
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 240:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 350:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                default:
-                    if (wavesSpawned > 350) {
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                    }
-            }
-
-            // Choose which lane to spawn the enemy in
-            enemyLane = randomInt(_lanes.NUM_LANES);
-
-            // Make the enemy
-            enemy = _enemyPool.take();
-
-            enemy.lane = enemyLane;
-            enemy.x = _lanes.getCenterX(enemyLane);
-            enemy.y = -10;
-            enemy.speed = _enemySpeed;
-            enemy.invisPointY = invisTurningPoint;
-            enemy.sprite = resources.spr_enemy();
-            enemy.width = enemy.sprite.width;
-            enemy.height = enemy.sprite.height;
-            enemy.isFake = false;
-
-            _addEntity(enemy);
-
-            // Keep track of tutorial waves
-            if (isTutorialWave) {
-                tutorialEvents.push({lane: enemyLane, wave: wavesSpawned});
-            }
-
-            // Update number of waves spawned
-            wavesSpawned++;
-        };
-
-        let cloneSpawn = function() {
-            let enemy, realEnemy, enemyLane, i;
-            let isTutorialWave = false;
-
-            // Wave events
-            switch(wavesSpawned) {
-                case 0:
-                case 1:
-                case 2:
-                    isTutorialWave = true;
-                    break;
-
-                case 5:
-                case 6:
-                case 7:
-                    numClones = 1;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    isTutorialWave = true;
-                    break;
-
-                case 20:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 35:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 80:
-                    numClones = 2;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 100:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 140:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                case 220:
-                    numClones = 3;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    break;
-
-                case 240:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    break;
-
-                case 350:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    break;
-
-                default:
-                    if (wavesSpawned > 350) {
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                    }
-            }
-
-            // Choose which lanes to spawn the enemies in
-            enemyLane = randomInt(_lanes.NUM_LANES - numClones);
-
-            // Make the enemy and its clone(s)
-            for (i = 0; i <= numClones; i++) {
-                enemy = _enemyPool.take();
-
-                enemy.lane = enemyLane+i;
-                enemy.x = _lanes.getCenterX(enemyLane+i);
-                enemy.y = -10;
-                enemy.speed = _enemySpeed;
-                enemy.invisPointY = invisTurningPoint;
-                enemy.sprite = resources.spr_enemy();
-                enemy.width = enemy.sprite.width;
-                enemy.height = enemy.sprite.height;
-                enemy.sprite.draw = false;
-                enemy.isFake = true;
-
-                cloneList[i] = enemy;
-                _addEntity(enemy);
-            }
-
-            // Pick one enemy to be the real one
-            realEnemy = cloneList[randomInt(cloneList.length)];
-            realEnemy.isFake = false;
-            realEnemy.sprite.draw = true;
-
-            // Keep track of tutorial waves
-            if (isTutorialWave) {
-                tutorialEvents.push({lane: realEnemy.lane, wave: wavesSpawned});
-            }
-
-            // Update number of waves spawned
-            wavesSpawned++;
-        };
+        }
 
         function showTutorial() {
 
@@ -474,7 +273,7 @@ let game = (function() {
             init: init,
             updateWavesPassed: updateWavesPassed,
             showTutorial: showTutorial,
-            spawn: function() { spawnFunction(); },
+            spawn: spawn,
             wavesPassed: function() { return wavesPassed; }
         };
     })();
@@ -722,48 +521,21 @@ let game = (function() {
 
             // About to be invisible?
             else if (entity instanceof Enemy &&
-                        ((_spawnMode === MODES.clones && entity.isFake) || 
-                        _spawnMode === MODES.single ||
-                        (_spawnMode === MODES.graves && !entity.isFake)
-                        ) &&
+                    !entity.isFake &&
                     entity.y >= alertZone &&
                     entity.y < entity.invisPointY) {
                 
                 // Begin transparency
-                if (_spawnMode === MODES.graves) {
-                    entity.sprite.alpha = 1 - ( (entity.y - alertZone) / (entity.invisPointY - alertZone) );
-                }
-
-                // Flash!
-                else {
-                    entity.sprite.draw = !entity.sprite.draw;
-                }
+                entity.sprite.alpha = 1 - ( (entity.y - alertZone) / (entity.invisPointY - alertZone) );
             }
 
             // Invisible?
             else if (entity instanceof Enemy &&
-                        ((_spawnMode === MODES.clones && entity.isFake) || 
-                        _spawnMode === MODES.single ||
-                        (_spawnMode === MODES.graves && !entity.isFake)
-                        ) &&
-                        entity.y >= entity.invisPointY &&
-                        !entity.clicked) {
+                    !entity.isFake &&
+                    entity.y >= entity.invisPointY &&
+                    !entity.clicked) {
 
-                // When spawning clones, make clones.draw = true
-                // When spawning singles, make the singles.draw = false
-                switch(_spawnMode) {
-                    case MODES.single:
-                    case MODES.graves:
-                        entity.sprite.draw = false;
-                        break;
-                    case MODES.clones:
-                        entity.sprite.draw = true;
-                        break;
-                    //case MODES.graves:
-                    //    entity.sprite.draw = true;
-                        //entity.sprite.fadeAmt = -0.02;
-                    //    break;
-                }
+                    entity.sprite.draw = false;
             }
 
             // Spawn a new wave after previous wave passed
@@ -849,7 +621,7 @@ let game = (function() {
                 if (successes === 1) {
                     untilMultiplierIncrease += 2;
                     _multiplier += 0.5;
-                    console.log(_multiplier + "x multipler!");
+                    //console.log(_multiplier + "x multipler!");
                 }
             }
         }
@@ -885,7 +657,6 @@ let game = (function() {
         updateWavesPassed: _waves.updateWavesPassed,
         toggleInput: _toggleInput,
         inputTimer: _inputTimer,
-        spawnMode: _spawnMode,
         easyAccuracy: _easyAccuracy,
         stoppingThreshold: _stoppingThreshold,
         inputEnabled: function() { return _inputEnabled; },
