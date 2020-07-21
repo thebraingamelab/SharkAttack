@@ -2,6 +2,16 @@
 // Helper functions/objects
 ///////////////////////////////////////
 
+// Specifically switches from help menu to not implemented menu
+function helpToNotImplemented() {
+    switchMenu(helpMenu, notImplementedMenu);
+}
+
+// Specifically switches from pause menu to not implemented menu
+function pauseToNotImplemented() {
+    switchMenu(pauseMenu, notImplementedMenu);
+}
+
 // Animates a menu to pop out and remain visible
 function showMenu(menuElement) {
 

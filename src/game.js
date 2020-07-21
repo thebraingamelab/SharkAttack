@@ -25,8 +25,6 @@ let game = (function() {
     let _started = false;
     let _gameOver;
 
-    let _easyAccuracy = false;
-
     let _updateFunc;
     let _gameOverAnimation;
 
@@ -632,7 +630,7 @@ let game = (function() {
             untilMultiplierIncrease = 3;
             timerStillRunning = false;
 
-            console.log("Multiplier reset to 1.");
+            //console.log("Multiplier reset to 1.");
         }
 
         return {
@@ -657,7 +655,6 @@ let game = (function() {
         updateWavesPassed: _waves.updateWavesPassed,
         toggleInput: _toggleInput,
         inputTimer: _inputTimer,
-        easyAccuracy: _easyAccuracy,
         stoppingThreshold: _stoppingThreshold,
         inputEnabled: function() { return _inputEnabled; },
         accelerating: function() { return _accelerating; },

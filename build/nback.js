@@ -1,5 +1,498 @@
 ;(function(){
 "use strict";
+let config = {
+
+   /*
+   ** The HTML id of the canvas for the game.
+   **
+   ** Options: any string, or the empty string ( "" ) if not using canvas
+   */
+   canvasId: "game-canvas",
+
+
+   /*
+   ** The HTML id of the canvas wrapper.
+   ** The wrapper is resized while the canvas just fits the wrapper.
+   **
+   ** Options: any string, or the empty string ( "" ) if not using canvas wrapper and/or canvas
+   */
+  wrapperId: "canvas-wrapper",
+
+   /*
+   ** The HTML id of the container for the game.
+   **
+   ** Options: any string
+   */
+   containerId: "game-container",
+
+   /*
+    ** Minimum amount of time in milliseconds between each execution of resize code.
+    ** This is particularly useful in performance when a window might be
+    ** resized many times in a short time frame.
+    **
+    ** Options: any real number
+    */
+   resizeDelay: 250,
+
+    /*
+    ** The position of the canvas within the container (applicable to canvas only).
+    **
+    ** Options: "top left",     "top center",     "top right"
+    **          "center left",  "center center",  "center right"
+    **          "bottom left",  "bottom center",  "bottom right"
+    */
+    canvasPosition: "bottom center",
+
+    
+    /*
+    ** Whether the canvas should stretch to fit the container
+    ** or whether it should maintain aspect ratio (applicable to canvas only).
+    **
+    ** Options: true, false
+    */
+    stretchToFit: false,
+
+    /*
+    ** The orientation of the game (applicable to canvas only).
+    **
+    ** Options: "portrait", "landscape", "both"
+    */
+   orientation: "portrait",
+
+    /*
+    ** The width and height of the ingame field of play.
+    ** It is thus also the ideal width and height of the canvas if it is to
+    ** maintain aspect ratio (applicable to canvas only).
+    **
+    ** Options: any real number
+    */
+   gameFieldWidth: 540,
+   gameFieldHeight: 960
+    
+}
+
+;
+let resizer = (function() {
+    "use strict";
+
+    // This is all poot if config isn't loaded
+    if (!config) {
+        console.log("ERROR: unable to load config.js");
+        return null;
+    }
+    
+    // Private variables
+
+    // Figure out if user device is android or ios
+    //const _ua = navigator.userAgent.toLowerCase();
+    //const _android = _ua.indexOf('android') > -1;
+    //const _ios = /ipad|iphone|ipod/i.test(_ua) && !window.MSStream;
+    let _isInitialized = false;
+    let _resizeEvents = [];
+    let _numResizeEvents = 0;
+
+    let _canvasBoundingRect;
+    let _context;
+
+
+    let _heightPlusPadding, _widthPlusPadding;
+    let _paddingLeft, _paddingRight, _paddingTop, _paddingBottom;
+
+
+    // Exposed variables
+    let _container, _canvas, _wrapper;
+    let _currentHeight, _currentWidth;
+    let _sizeMode;
+    let _orientation;
+
+
+    // Get left offset of element
+    function _getOffsetLeft(elem) {
+        let offsetLeft = 0;
+
+        // Add px to left offset...
+        do {
+            if( !isNaN(elem.offsetLeft) ) {
+                offsetLeft += elem.offsetLeft;
+            }
+
+            // for each elem until there's no more parent element
+            elem = elem.offsetParent;
+        } while(elem !== null);
+
+        // Return left offset
+        return offsetLeft;
+    }
+
+    // Get top offset of element
+    function _getOffsetTop(elem) {
+        let offsetTop = 0;
+
+        do {
+            if( !isNaN(elem.offsetTop) ) {
+                offsetTop += elem.offsetTop;
+            }
+
+            elem = elem.offsetParent;
+        } while(elem !== null);
+
+        return offsetTop;
+    }
+
+    // Because events give coords in terms of the page,
+    // this function converts those in terms of the actual game's
+    // coordinate system.
+    function _getRelativeEventCoords(event) {
+        // Scale coords correctly
+        let scale = _currentWidth / config.gameFieldWidth;
+
+        // Get x and y values
+        let x = event.pageX - _getOffsetLeft(_wrapper);
+        let y = event.pageY - _getOffsetTop(_wrapper);
+
+        return {
+            x: x/scale,
+            y: y/scale
+        };
+    }
+
+
+    // Optimizes certain event listeners by only executing the callback
+    // a certain amount of time after the event *stops* firing (useful for resize)
+    function _debounce(func, delay, immediate) {
+        let timeout;
+
+        return function() {
+            let context = this, args = arguments;
+
+            let later = function() {
+                timeout = null;
+                if (!immediate)
+                    func.apply(context, args);
+            };
+
+            let callNow = immediate && !timeout;
+
+            clearTimeout(timeout);
+            timeout = window.setTimeout(later, delay);
+
+            if (callNow) 
+                func.apply(context, args);
+        };
+    }
+
+    // Resize the canvas
+    function _resize() {
+        const DPR = window.devicePixelRatio || 1;
+        let ratio, i;
+
+        // Get container's padding values
+        _paddingLeft = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-left'));
+        _paddingRight = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-right'));
+        _paddingTop = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-top'));
+        _paddingBottom = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-bottom'));
+
+        // Calculate the inner dimensions with padding taken into account
+        _heightPlusPadding = _container.clientHeight - (_paddingTop+_paddingBottom);
+        _widthPlusPadding = _container.clientWidth - (_paddingLeft+_paddingRight);
+
+        // Figure out orientation
+        if (config.orientation === "both") {
+            if (window.innerWidth >= window.innerHeight) {
+                _orientation = "landscape";
+            }
+            else {
+                _orientation = "portrait";
+            }
+        }
+        else {
+            _orientation = config.orientation;
+        }
+
+        // Stretch to fit?
+        if (config.stretchToFit) {
+            _currentHeight = _heightPlusPadding;
+            _currentWidth = _widthPlusPadding;
+        }
+
+        // Conform width to aspect ratio if not stretching to fit
+        else {
+
+            if (_orientation === "portrait") {
+                _sizeMode = "fitWidth";
+                
+                // Get aspect ratio
+                ratio = config.gameFieldWidth / config.gameFieldHeight;
+
+                _currentHeight = _heightPlusPadding;
+                _currentWidth = _currentHeight * ratio;
+
+                // Double check that the aspect ratio fits the container
+                if ( Math.floor(_currentWidth) > _widthPlusPadding ) {
+
+                    _sizeMode = "fitHeight";
+
+                    // Resize to fit width
+                    ratio = config.gameFieldHeight / config.gameFieldWidth;
+
+                    // Get correct  dimensions
+                    _currentWidth = _widthPlusPadding;
+                    _currentHeight = _currentWidth * ratio;
+                }
+            }
+            else {
+                _sizeMode = "fitHeight";
+
+                // Resize to fit width
+                ratio = config.gameFieldHeight / config.gameFieldWidth;
+
+                // Get correct  dimensions
+                _currentWidth = _widthPlusPadding;
+                _currentHeight = _currentWidth * ratio;
+
+
+                // Double check that the aspect ratio fits the container
+                if ( Math.floor(_currentHeight) > _heightPlusPadding ) {
+                    _sizeMode = "fitWidth";
+                
+                    // Get aspect ratio
+                    ratio = config.gameFieldWidth / config.gameFieldHeight;
+
+                    _currentHeight = _heightPlusPadding;
+                    _currentWidth = _currentHeight * ratio;
+                }
+            }
+        }
+
+        // For high-DPI display, increase the actual size of the canvas
+        //_canvas.width = Math.round(config.gameFieldWidth * DPR);
+        //_canvas.height = Math.round(config.gameFieldHeight * DPR);
+
+        // Ensure all drawing operations are scaled
+        //_context.scale(DPR, DPR);
+
+        // Scale everything down using CSS
+        _wrapper.style.width = Math.round(_currentWidth) + "px";
+        _wrapper.style.height = Math.round(_currentHeight) + "px";
+
+        // Position the canvas within the container according to config
+        _positionCanvas();
+
+        // Update bounding rect
+        _canvasBoundingRect = _canvas.getBoundingClientRect();
+
+        // Call the resize event(s)
+        for (i = 0; i < _numResizeEvents; i++) { 
+            _resizeEvents[i]();
+        }
+    }
+
+    // Center the canvas within the container
+    function _positionCanvas() {
+        let bodyRect, containerRect, cPageX, cPageY;
+
+        // Get the requested positioning
+        let position = config.canvasPosition.split(" ");
+
+        // Determine container position style
+        let containerPosition = window.getComputedStyle(_container).getPropertyValue("position");
+
+
+        // If the container is absolute, canvas is positioned relative to document body
+        if (containerPosition === "absolute") {
+
+            // Get container coordinates relative to page (not viewport)
+            bodyRect = document.body.getBoundingClientRect();
+            containerRect = _container.getBoundingClientRect();
+
+            cPageX = containerRect.left - bodyRect.left;
+            cPageY = containerRect.top - bodyRect.top;
+        }
+
+        // If container is not absolute, canvas is positioned relative to parent
+        else {
+            cPageX = 0;
+            cPageY = 0;
+        }
+
+        // Vertical positioning
+        switch (position[0]) {
+            default:
+            case "center":
+                _wrapper.style.top = Math.round(cPageY + _paddingTop + ( (_heightPlusPadding/2) - (_currentHeight/2) )) + "px";
+                break;
+
+            case "top":
+                _wrapper.style.top = Math.round(cPageY + _paddingTop) + "px";
+                break;
+
+            case "bottom":
+                _wrapper.style.top = Math.round(cPageY + _container.clientHeight - _currentHeight - _paddingBottom) + "px";
+                break;
+            
+        }
+
+        // Horizontal positioning
+        switch(position[1]) {
+            default:
+            case "center":
+                _wrapper.style.left = Math.round(cPageX + _paddingLeft + ( (_widthPlusPadding/2) - (_currentWidth/2) )) + "px";
+                break;
+
+            case "left":
+                _wrapper.style.left = Math.round(cPageX + _paddingLeft) + "px";
+                break;
+
+            case "right":
+                _wrapper.style.left = Math.round(cPageX + _container.clientWidth - _currentWidth - _paddingRight) + "px";
+                break;
+        }
+    }
+
+    // Initialize the resizer
+    function _init() {
+        // Begin loading once window is loaded
+        if(!_isInitialized) {
+            _isInitialized = true;
+
+            // Get container
+            _container = document.getElementById(config.containerId);
+
+            if (config.canvasId !== "") {
+
+                // Get the canvas/wrapper info
+                _canvas = document.getElementById(config.canvasId);
+                _context = _canvas.getContext("2d");
+
+                if (config.wrapperId !== "") {
+                    _wrapper = document.getElementById(config.wrapperId);
+                }
+                else {
+                    _wrapper = _canvas;
+                }
+                
+
+                // Set canvas width and height
+                _currentWidth = config.gameFieldWidth;
+                _currentHeight = config.gameFieldHeight;
+
+                _canvas.width = _currentWidth;
+                _canvas.height = _currentHeight;
+
+                // The wrapper is resized while the canvas just fits to the wrapper
+                _canvas.style.width = "100%";
+                _canvas.style.height = "100%";
+                
+                // Wrapper must be absolutely positioned to position it correctly within container
+                _wrapper.style.position = "absolute";
+            }
+
+            // Set resize events
+            if (config.resizeDelay > 0) {
+                window.addEventListener('resize', _debounce(_resize, config.resizeDelay, false), false);
+            }
+            else {
+                window.addEventListener('resize', _resize, false);
+            }
+
+            // Do the first resize immediately
+            _resize();
+
+        }
+        else {
+            console.log("ERROR: resizer already initialized.");
+        }
+    }
+    
+
+    // Accessors
+
+    function _getCanvasBoundingRect() {
+        return _canvasBoundingRect;
+    }
+
+    function _getOrientation() {
+        return _orientation;
+    }
+
+    function _getSizeMode() {
+        return _sizeMode;
+    }
+
+    function _getCanvas() {
+        if (_canvas) {
+            return _canvas;
+        }
+
+        else {
+            console.log("ERROR: canvas has been set to false in config.js");
+            return null;
+        }
+    }
+
+    function _getContainer() {
+        return _container;
+    }
+
+    function _getGameWidth() {
+        return config.gameFieldWidth;
+    }
+
+    function _getGameHeight() {
+        return config.gameFieldHeight;
+    }
+
+    function _getCanvasWidth() {
+        return _currentWidth;
+    }
+
+    function _getCanvasHeight() {
+        return _currentHeight;
+    }
+
+    // Mutators
+
+    function _addResizeEvent(func) {
+        _resizeEvents.push(func);
+        _numResizeEvents++;
+    }
+
+    function _removeResizeEvent(func) {
+        let i = 0;
+        
+        // Look for the function in the array
+        while (_resizeEvents[i] !== func && i < _numResizeEvents) {
+            i++;
+        }
+
+        // If i is within the array length, we found the function to remove
+        if (i < _numResizeEvents) {
+        
+            _resizeEvents[i] = _resizeEvents[_resizeEvents.length-1];
+            _resizeEvents[_resizeEvents.length-1] = undefined;
+        
+            _resizeEvents.length = _resizeEvents.length-1;
+        }
+    }
+
+    return {
+        init: _init,
+        resize: _resize,
+        getOrientation: _getOrientation,
+        getSizeMode: _getSizeMode,
+        getCanvas: _getCanvas,
+        getContainer: _getContainer,
+        getGameHeight: _getGameHeight,
+        getGameWidth: _getGameWidth,
+        getCanvasWidth: _getCanvasWidth,
+        getCanvasHeight: _getCanvasHeight,
+        getCanvasBoundingRect: _getCanvasBoundingRect,
+        addResizeEvent: _addResizeEvent,
+        removeResizeEvent: _removeResizeEvent,
+        getRelativeEventCoords: _getRelativeEventCoords
+    };
+
+})();;
 resizer.init();
 
 const GAME_FIELD_HEIGHT = resizer.getGameHeight();
@@ -24,10 +517,20 @@ let helpBtn = document.getElementById("help");
 // Menu elements
 let pauseMenu = document.getElementById("pause-menu");
 let resumeBtn = document.getElementById("resume");
+let restartBtn = document.getElementById("restart");
+let exitBtn = document.getElementById("exit");
+
+let miniMusicBtn = document.getElementById("music-mini");
+let miniVolumeBtn = document.getElementById("volume-mini");
 let miniHelpBtn = document.getElementById("help-mini");
 
 let helpMenu = document.getElementById("help-menu");
-let backBtn = document.getElementById("back");
+let helpBackBtn = document.getElementById("help-back");
+let reportBtn = document.getElementById("report-a-bug");
+let tutorialBtn = document.getElementById("tutorial");
+
+let notImplementedMenu = document.getElementById("not-implemented-menu");
+let notImplementedBackBtn = document.getElementById("not-implemented-back");
 
 let dimmer = document.getElementById("dimmer");
 
@@ -36,6 +539,16 @@ let boxSize;;
 ///////////////////////////////////////
 // Helper functions/objects
 ///////////////////////////////////////
+
+// Specifically switches from help menu to not implemented menu
+function helpToNotImplemented() {
+    switchMenu(helpMenu, notImplementedMenu);
+}
+
+// Specifically switches from pause menu to not implemented menu
+function pauseToNotImplemented() {
+    switchMenu(pauseMenu, notImplementedMenu);
+}
 
 // Animates a menu to pop out and remain visible
 function showMenu(menuElement) {
@@ -871,19 +1384,13 @@ let resources = (function () {
 ///////////////////////////////////////
 
 let renderer = (function () {
-    const SCORE_ELEMENT = document.getElementById("bar-label");
+    const SCORE_TEXT = document.getElementById("bar-label");
     const START_BUTTON = document.getElementById("start-button");
+    const LIVES_DIV = document.getElementById("lives");
 
     // Variables
-    let _livesDiv;
-
     let _canvas = resizer.getCanvas();
     let _context = _canvas.getContext("2d", { alpha: false });
-
-    let _currentHeight = GAME_FIELD_HEIGHT;
-    let _currentWidth = GAME_FIELD_WIDTH;
-
-    
 
     let previousLives = 0;
     let previousScore = 0;
@@ -962,19 +1469,15 @@ let renderer = (function () {
     })();
 
     function _updateUI (forceUpdate=false) {
-            let numLives, score;
+            let numLives, score, svg, use;
             let i;
 
             if (game && !game.started()) {
-                // Hide lives
-                //_livesDiv.style.display = "none";
                 
                 // Make start button disappear
                 START_BUTTON.style.display = "block";
             }
             else if (game) {
-                // Show lives
-                //_livesDiv.style.display = "flex";
 
                 // Make start button disappear
                 START_BUTTON.style.display = "none";
@@ -985,9 +1488,7 @@ let renderer = (function () {
                 // Update score
                 if (previousScore !== score || forceUpdate) {
                     previousScore = score;
-                    SCORE_ELEMENT.textContent = "Score: " + score;
-                    //let dpr = window.devicePixelRatio || 1;
-                    //SCORE_ELEMENT.textContent = "DPR: " + dpr;
+                    SCORE_TEXT.textContent = "Score: " + score;
                 }
                 
                 // Update Player Lives
@@ -995,21 +1496,22 @@ let renderer = (function () {
 
                     previousLives = numLives;
 
-                    /*for (i = 0; i < _livesDiv.childNodes.length; i++) {
-                        if (_livesDiv.childNodes[i] instanceof Image) {
-                            _livesDiv.removeChild(_livesDiv.childNodes[i]);
-                            i--;
-                        }
+                    for (i = 0; i < LIVES_DIV.childNodes.length; i++) {
+                        LIVES_DIV.removeChild(LIVES_DIV.childNodes[i]);
+                        i--;
                     }
 
                     // Add an image for each life
                     for (i = 0; i < numLives; i++) {
-                        let img = document.createElement("img");
-                        img.src = LIFE_IMAGE.image.src;
-                        img.className = "life";
+                        svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                        use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 
-                        _livesDiv.appendChild(img);
-                    }*/
+                        use.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#heart");
+                        use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#heart");
+
+                        svg.appendChild(use);
+                        LIVES_DIV.appendChild(svg);
+                    }
                 }
             }
         }
@@ -1102,8 +1604,6 @@ let game = (function() {
 
     let _started = false;
     let _gameOver;
-
-    let _easyAccuracy = false;
 
     let _updateFunc;
     let _gameOverAnimation;
@@ -1710,7 +2210,7 @@ let game = (function() {
             untilMultiplierIncrease = 3;
             timerStillRunning = false;
 
-            console.log("Multiplier reset to 1.");
+            //console.log("Multiplier reset to 1.");
         }
 
         return {
@@ -1735,7 +2235,6 @@ let game = (function() {
         updateWavesPassed: _waves.updateWavesPassed,
         toggleInput: _toggleInput,
         inputTimer: _inputTimer,
-        easyAccuracy: _easyAccuracy,
         stoppingThreshold: _stoppingThreshold,
         inputEnabled: function() { return _inputEnabled; },
         accelerating: function() { return _accelerating; },
@@ -1837,14 +2336,10 @@ function inputHandler(event) {
 
         // Determine the location of the clickbox
         clickBox.x = clickLocation.x - (clickBoxSize/2);
-        clickBox.y = clickLocation.y - (clickBoxSize/2);
+        //clickBox.y = clickLocation.y - (clickBoxSize/2);
+        clickBox.y = game.stoppingThreshold;
 
-        if (game.easyAccuracy) {
-            clickBox.x = game.lanes.getCenterX(game.lanes.getLaneByLocation(clickLocation.x));
-            clickBox.y = game.stoppingThreshold;
-            clickBox.height = 64;
-            clickBox.width = 1;
-        }
+        clickBox.height = GAME_FIELD_HEIGHT - game.stoppingThreshold;
 
         // Did the user click on an enemy?
         for (i = 0; i < len; i++) {
@@ -1856,7 +2351,7 @@ function inputHandler(event) {
             // NOTE: intersection area > 0 if there is any actual intersection (player actually clicked on an enemy)
 
             // If more of the clickBox is on this enemy, then this is the intended enemy
-            if (/*collisionRect.intersects(clickBox) && */intersectionArea > hitArea) {
+            if (intersectionArea > hitArea) {
                 hitArea = intersectionArea;
                 enemy.clicked = true;
                 intendedEnemy = enemy;
@@ -2032,10 +2527,20 @@ resizer.resize();
 //////////////////////////
 
 pauseBtn.addEventListener("click", function() { showMenu(pauseMenu); }, false);
+    
 resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
+restartBtn.addEventListener("click", pauseToNotImplemented, false);
+exitBtn.addEventListener("click", pauseToNotImplemented, false);
+
+miniMusicBtn.addEventListener("click", pauseToNotImplemented, false);
+miniVolumeBtn.addEventListener("click", pauseToNotImplemented, false);
 miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
 
 
 helpBtn.addEventListener("click", function() { showMenu(helpMenu); }, false);
-backBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
+reportBtn.addEventListener("click", helpToNotImplemented, false);
+tutorialBtn.addEventListener("click", helpToNotImplemented, false);
+helpBackBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
+
+notImplementedBackBtn.addEventListener("click", function() { switchMenu(notImplementedMenu, pauseMenu); }, false);
 })();

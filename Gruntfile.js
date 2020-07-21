@@ -29,7 +29,7 @@ module.exports = function(grunt) {
           },
 
           build: {
-            src: ['src/globals.js', 'src/helpers.js', 'src/classes.js', 'src/resources.js', 'src/renderer.js', 'src/game.js', 'src/input.js'],
+            src: ['Resizer/config.js', 'Resizer/resizer.js', 'src/globals.js', 'src/helpers.js', 'src/classes.js', 'src/resources.js', 'src/renderer.js', 'src/game.js', 'src/input.js'],
             dest: 'build/<%= pkg.name %>.js'
           }
         },
@@ -51,7 +51,7 @@ module.exports = function(grunt) {
         },
 
         watch: {
-          files: ['src/*.js'],
+          files: ['src/*.js', 'style.css'],
           tasks: ['default']
         },
 

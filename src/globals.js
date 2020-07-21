@@ -22,10 +22,20 @@ let helpBtn = document.getElementById("help");
 // Menu elements
 let pauseMenu = document.getElementById("pause-menu");
 let resumeBtn = document.getElementById("resume");
+let restartBtn = document.getElementById("restart");
+let exitBtn = document.getElementById("exit");
+
+let miniMusicBtn = document.getElementById("music-mini");
+let miniVolumeBtn = document.getElementById("volume-mini");
 let miniHelpBtn = document.getElementById("help-mini");
 
 let helpMenu = document.getElementById("help-menu");
-let backBtn = document.getElementById("back");
+let helpBackBtn = document.getElementById("help-back");
+let reportBtn = document.getElementById("report-a-bug");
+let tutorialBtn = document.getElementById("tutorial");
+
+let notImplementedMenu = document.getElementById("not-implemented-menu");
+let notImplementedBackBtn = document.getElementById("not-implemented-back");
 
 let dimmer = document.getElementById("dimmer");
 

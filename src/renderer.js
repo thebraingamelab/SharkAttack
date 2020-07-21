@@ -3,19 +3,13 @@
 ///////////////////////////////////////
 
 let renderer = (function () {
-    const SCORE_ELEMENT = document.getElementById("bar-label");
+    const SCORE_TEXT = document.getElementById("bar-label");
     const START_BUTTON = document.getElementById("start-button");
+    const LIVES_DIV = document.getElementById("lives");
 
     // Variables
-    let _livesDiv;
-
     let _canvas = resizer.getCanvas();
     let _context = _canvas.getContext("2d", { alpha: false });
-
-    let _currentHeight = GAME_FIELD_HEIGHT;
-    let _currentWidth = GAME_FIELD_WIDTH;
-
-    
 
     let previousLives = 0;
     let previousScore = 0;
@@ -94,19 +88,15 @@ let renderer = (function () {
     })();
 
     function _updateUI (forceUpdate=false) {
-            let numLives, score;
+            let numLives, score, svg, use;
             let i;
 
             if (game && !game.started()) {
-                // Hide lives
-                //_livesDiv.style.display = "none";
                 
                 // Make start button disappear
                 START_BUTTON.style.display = "block";
             }
             else if (game) {
-                // Show lives
-                //_livesDiv.style.display = "flex";
 
                 // Make start button disappear
                 START_BUTTON.style.display = "none";
@@ -117,9 +107,7 @@ let renderer = (function () {
                 // Update score
                 if (previousScore !== score || forceUpdate) {
                     previousScore = score;
-                    SCORE_ELEMENT.textContent = "Score: " + score;
-                    //let dpr = window.devicePixelRatio || 1;
-                    //SCORE_ELEMENT.textContent = "DPR: " + dpr;
+                    SCORE_TEXT.textContent = "Score: " + score;
                 }
                 
                 // Update Player Lives
@@ -127,21 +115,22 @@ let renderer = (function () {
 
                     previousLives = numLives;
 
-                    /*for (i = 0; i < _livesDiv.childNodes.length; i++) {
-                        if (_livesDiv.childNodes[i] instanceof Image) {
-                            _livesDiv.removeChild(_livesDiv.childNodes[i]);
-                            i--;
-                        }
+                    for (i = 0; i < LIVES_DIV.childNodes.length; i++) {
+                        LIVES_DIV.removeChild(LIVES_DIV.childNodes[i]);
+                        i--;
                     }
 
                     // Add an image for each life
                     for (i = 0; i < numLives; i++) {
-                        let img = document.createElement("img");
-                        img.src = LIFE_IMAGE.image.src;
-                        img.className = "life";
+                        svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                        use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 
-                        _livesDiv.appendChild(img);
-                    }*/
+                        use.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#heart");
+                        use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#heart");
+
+                        svg.appendChild(use);
+                        LIVES_DIV.appendChild(svg);
+                    }
                 }
             }
         }

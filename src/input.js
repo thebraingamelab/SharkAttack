@@ -79,14 +79,10 @@ function inputHandler(event) {
 
         // Determine the location of the clickbox
         clickBox.x = clickLocation.x - (clickBoxSize/2);
-        clickBox.y = clickLocation.y - (clickBoxSize/2);
+        //clickBox.y = clickLocation.y - (clickBoxSize/2);
+        clickBox.y = game.stoppingThreshold;
 
-        if (game.easyAccuracy) {
-            clickBox.x = game.lanes.getCenterX(game.lanes.getLaneByLocation(clickLocation.x));
-            clickBox.y = game.stoppingThreshold;
-            clickBox.height = 64;
-            clickBox.width = 1;
-        }
+        clickBox.height = GAME_FIELD_HEIGHT - game.stoppingThreshold;
 
         // Did the user click on an enemy?
         for (i = 0; i < len; i++) {
@@ -98,7 +94,7 @@ function inputHandler(event) {
             // NOTE: intersection area > 0 if there is any actual intersection (player actually clicked on an enemy)
 
             // If more of the clickBox is on this enemy, then this is the intended enemy
-            if (/*collisionRect.intersects(clickBox) && */intersectionArea > hitArea) {
+            if (intersectionArea > hitArea) {
                 hitArea = intersectionArea;
                 enemy.clicked = true;
                 intendedEnemy = enemy;
@@ -274,9 +270,19 @@ resizer.resize();
 //////////////////////////
 
 pauseBtn.addEventListener("click", function() { showMenu(pauseMenu); }, false);
+    
 resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
+restartBtn.addEventListener("click", pauseToNotImplemented, false);
+exitBtn.addEventListener("click", pauseToNotImplemented, false);
+
+miniMusicBtn.addEventListener("click", pauseToNotImplemented, false);
+miniVolumeBtn.addEventListener("click", pauseToNotImplemented, false);
 miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
 
 
 helpBtn.addEventListener("click", function() { showMenu(helpMenu); }, false);
-backBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
+reportBtn.addEventListener("click", helpToNotImplemented, false);
+tutorialBtn.addEventListener("click", helpToNotImplemented, false);
+helpBackBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
+
+notImplementedBackBtn.addEventListener("click", function() { switchMenu(notImplementedMenu, pauseMenu); }, false);
