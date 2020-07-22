@@ -124,8 +124,7 @@ let renderer = (function () {
                         svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                         use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 
-                        use.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#heart");
-                        use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#heart");
+                        use.setAttribute("href", "#heart");
 
                         svg.appendChild(use);
                         LIVES_DIV.appendChild(svg);

@@ -3,10 +3,12 @@
 ///////////////////////////////////////
 let resources = (function () {
     // Sprites
-
+    const SCALE = 960 / 90;
+    const GHOST_SCALE = 960 / 72;
     const SPRITE_SIZE = 128;
 
-    let realSize = 90;
+    let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
+    let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
 
 
     // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
@@ -15,7 +17,7 @@ let resources = (function () {
 
     //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
     //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", 72, 72, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", ghostSize, ghostSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
     //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
     let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
@@ -37,6 +39,7 @@ let resources = (function () {
     let _sfxGainNode;
 
     let _masterVolume, _musicVolume, _sfxVolume;
+    let _previousVolume;
 
     // Context
     let AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -86,7 +89,7 @@ let resources = (function () {
         return null;
     }
     
-    function _setMasterVolume() {
+    function _setMasterVolume(vol) {
         _masterVolume = vol;
             
         _sfxGainNode.gain.value = _sfxVolume * vol;
@@ -101,6 +104,15 @@ let resources = (function () {
                 console.log("Error: an issue occurred when saving volume data.");
             }
         }
+    }
+
+    function _mute() {
+        _previousVolume = _masterVolume;
+        _setMasterVolume(0);
+    }
+
+    function _unmute() {
+        _setMasterVolume(_previousVolume);
     }
 
     function _putSpriteBack(spr) {
@@ -133,6 +145,10 @@ let resources = (function () {
 
         initVolume: _initVolume,
         setMasterVolume: _setMasterVolume,
+
+        mute: _mute,
+        unmute: _unmute,
+
         putSpriteBack: _putSpriteBack
     };
 })();

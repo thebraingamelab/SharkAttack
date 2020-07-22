@@ -274,8 +274,7 @@ resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
 restartBtn.addEventListener("click", pauseToNotImplemented, false);
 exitBtn.addEventListener("click", pauseToNotImplemented, false);
 
-miniMusicBtn.addEventListener("click", pauseToNotImplemented, false);
-miniVolumeBtn.addEventListener("click", pauseToNotImplemented, false);
+miniVolumeBtn.addEventListener("click", toggleVolume, false);
 miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
 
 

@@ -53,6 +53,15 @@ let config = {
     stretchToFit: false,
 
     /*
+    ** Whether the canvas drawing operations should scale to look sharper
+    ** on retina displays (which have high device pixel ratios (DPRs).
+    ** WARNGING: may cause a decrease in performance.
+    **
+    ** Options: true, false
+    */
+   scaleByDPR: false,
+
+    /*
     ** The orientation of the game (applicable to canvas only).
     **
     ** Options: "portrait", "landscape", "both"
@@ -69,7 +78,7 @@ let config = {
    gameFieldWidth: 540,
    gameFieldHeight: 960
     
-}
+};
 
 ;
 let resizer = (function() {
@@ -104,6 +113,7 @@ let resizer = (function() {
     let _currentHeight, _currentWidth;
     let _sizeMode;
     let _orientation;
+
 
 
     // Get left offset of element
@@ -147,8 +157,8 @@ let resizer = (function() {
         let scale = _currentWidth / config.gameFieldWidth;
 
         // Get x and y values
-        let x = event.pageX - _getOffsetLeft(_wrapper);
-        let y = event.pageY - _getOffsetTop(_wrapper);
+        let x = event.pageX - _getOffsetLeft(_canvas);
+        let y = event.pageY - _getOffsetTop(_canvas);
 
         return {
             x: x/scale,
@@ -186,50 +196,63 @@ let resizer = (function() {
         const DPR = window.devicePixelRatio || 1;
         let ratio, i;
 
-        // Get container's padding values
-        _paddingLeft = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-left'));
-        _paddingRight = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-right'));
-        _paddingTop = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-top'));
-        _paddingBottom = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-bottom'));
+        if (_canvas) {
 
-        // Calculate the inner dimensions with padding taken into account
-        _heightPlusPadding = _container.clientHeight - (_paddingTop+_paddingBottom);
-        _widthPlusPadding = _container.clientWidth - (_paddingLeft+_paddingRight);
+            // Get container's padding values
+            _paddingLeft = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-left'));
+            _paddingRight = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-right'));
+            _paddingTop = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-top'));
+            _paddingBottom = parseFloat(window.getComputedStyle(_container).getPropertyValue('padding-bottom'));
 
-        // Figure out orientation
-        if (config.orientation === "both") {
-            if (window.innerWidth >= window.innerHeight) {
-                _orientation = "landscape";
+            // Calculate the inner dimensions with padding taken into account
+            _heightPlusPadding = _container.clientHeight - (_paddingTop+_paddingBottom);
+            _widthPlusPadding = _container.clientWidth - (_paddingLeft+_paddingRight);
+
+            // Figure out orientation
+            if (config.orientation === "both") {
+                if (window.innerWidth >= window.innerHeight) {
+                    _orientation = "landscape";
+                }
+                else {
+                    _orientation = "portrait";
+                }
             }
             else {
-                _orientation = "portrait";
+                _orientation = config.orientation;
             }
-        }
-        else {
-            _orientation = config.orientation;
-        }
 
-        // Stretch to fit?
-        if (config.stretchToFit) {
-            _currentHeight = _heightPlusPadding;
-            _currentWidth = _widthPlusPadding;
-        }
-
-        // Conform width to aspect ratio if not stretching to fit
-        else {
-
-            if (_orientation === "portrait") {
-                _sizeMode = "fitWidth";
-                
-                // Get aspect ratio
-                ratio = config.gameFieldWidth / config.gameFieldHeight;
-
+            // Stretch to fit?
+            if (config.stretchToFit) {
                 _currentHeight = _heightPlusPadding;
-                _currentWidth = _currentHeight * ratio;
+                _currentWidth = _widthPlusPadding;
+            }
 
-                // Double check that the aspect ratio fits the container
-                if ( Math.floor(_currentWidth) > _widthPlusPadding ) {
+            // Conform width to aspect ratio if not stretching to fit
+            else {
 
+                if (_orientation === "portrait") {
+                    _sizeMode = "fitWidth";
+                    
+                    // Get aspect ratio
+                    ratio = config.gameFieldWidth / config.gameFieldHeight;
+
+                    _currentHeight = _heightPlusPadding;
+                    _currentWidth = _currentHeight * ratio;
+
+                    // Double check that the aspect ratio fits the container
+                    if ( Math.floor(_currentWidth) > _widthPlusPadding ) {
+
+                        _sizeMode = "fitHeight";
+
+                        // Resize to fit width
+                        ratio = config.gameFieldHeight / config.gameFieldWidth;
+
+                        // Get correct  dimensions
+                        _currentWidth = _widthPlusPadding;
+                        _currentHeight = _currentWidth * ratio;
+                    }
+                }
+                else {
                     _sizeMode = "fitHeight";
 
                     // Resize to fit width
@@ -238,48 +261,42 @@ let resizer = (function() {
                     // Get correct  dimensions
                     _currentWidth = _widthPlusPadding;
                     _currentHeight = _currentWidth * ratio;
+
+
+                    // Double check that the aspect ratio fits the container
+                    if ( Math.floor(_currentHeight) > _heightPlusPadding ) {
+                        _sizeMode = "fitWidth";
+                    
+                        // Get aspect ratio
+                        ratio = config.gameFieldWidth / config.gameFieldHeight;
+
+                        _currentHeight = _heightPlusPadding;
+                        _currentWidth = _currentHeight * ratio;
+                    }
                 }
             }
-            else {
-                _sizeMode = "fitHeight";
 
-                // Resize to fit width
-                ratio = config.gameFieldHeight / config.gameFieldWidth;
+            // For high-DPI display, increase the actual size of the canvas
+            // THIS WAS CAUSING SLOW PERFORMANCE ON DEVICES WITH HIGH DPR VALUES
 
-                // Get correct  dimensions
-                _currentWidth = _widthPlusPadding;
-                _currentHeight = _currentWidth * ratio;
+            if (config.scaleByDPR) {
+                _canvas.width = Math.round(config.gameFieldWidth * DPR);
+                _canvas.height = Math.round(config.gameFieldHeight * DPR);
 
-
-                // Double check that the aspect ratio fits the container
-                if ( Math.floor(_currentHeight) > _heightPlusPadding ) {
-                    _sizeMode = "fitWidth";
-                
-                    // Get aspect ratio
-                    ratio = config.gameFieldWidth / config.gameFieldHeight;
-
-                    _currentHeight = _heightPlusPadding;
-                    _currentWidth = _currentHeight * ratio;
-                }
+                // Ensure all drawing operations are scaled
+                _context.scale(DPR, DPR);
             }
+
+            // Scale everything down using CSS
+            _wrapper.style.width = Math.round(_currentWidth) + "px";
+            _wrapper.style.height = Math.round(_currentHeight) + "px";
+
+            // Position the canvas within the container according to config
+            _positionCanvas();
+
+            // Update bounding rect
+            _canvasBoundingRect = _canvas.getBoundingClientRect();
         }
-
-        // For high-DPI display, increase the actual size of the canvas
-        //_canvas.width = Math.round(config.gameFieldWidth * DPR);
-        //_canvas.height = Math.round(config.gameFieldHeight * DPR);
-
-        // Ensure all drawing operations are scaled
-        //_context.scale(DPR, DPR);
-
-        // Scale everything down using CSS
-        _wrapper.style.width = Math.round(_currentWidth) + "px";
-        _wrapper.style.height = Math.round(_currentHeight) + "px";
-
-        // Position the canvas within the container according to config
-        _positionCanvas();
-
-        // Update bounding rect
-        _canvasBoundingRect = _canvas.getBoundingClientRect();
 
         // Call the resize event(s)
         for (i = 0; i < _numResizeEvents; i++) { 
@@ -364,14 +381,6 @@ let resizer = (function() {
                 _canvas = document.getElementById(config.canvasId);
                 _context = _canvas.getContext("2d");
 
-                if (config.wrapperId !== "") {
-                    _wrapper = document.getElementById(config.wrapperId);
-                }
-                else {
-                    _wrapper = _canvas;
-                }
-                
-
                 // Set canvas width and height
                 _currentWidth = config.gameFieldWidth;
                 _currentHeight = config.gameFieldHeight;
@@ -379,9 +388,18 @@ let resizer = (function() {
                 _canvas.width = _currentWidth;
                 _canvas.height = _currentHeight;
 
-                // The wrapper is resized while the canvas just fits to the wrapper
-                _canvas.style.width = "100%";
-                _canvas.style.height = "100%";
+
+                // Check if wrapper is being used
+                if (config.wrapperId !== "") {
+                    _wrapper = document.getElementById(config.wrapperId);
+
+                    // The wrapper is resized while the canvas just fits to the wrapper
+                    _canvas.style.width = "100%";
+                    _canvas.style.height = "100%";
+                }
+                else {
+                    _wrapper = _canvas;
+                }
                 
                 // Wrapper must be absolutely positioned to position it correctly within container
                 _wrapper.style.position = "absolute";
@@ -467,7 +485,6 @@ let resizer = (function() {
 
         // If i is within the array length, we found the function to remove
         if (i < _numResizeEvents) {
-        
             _resizeEvents[i] = _resizeEvents[_resizeEvents.length-1];
             _resizeEvents[_resizeEvents.length-1] = undefined;
         
@@ -542,6 +559,25 @@ let boxSize;;
 ///////////////////////////////////////
 // Helper functions/objects
 ///////////////////////////////////////
+
+// Toggles muted or unmuted states
+let toggleVolume = (function() {
+    let muted = false;
+    let use = miniVolumeBtn.firstElementChild.firstElementChild;
+
+    return function () {
+        muted = !muted;
+
+        if (muted) {
+            use.setAttribute("href", "#no-volume-icon");
+            resources.mute();
+        }
+        else {
+            use.setAttribute("href", "#volume-icon");
+            resources.unmute();
+        }
+    };
+})();
 
 // Specifically switches from help menu to not implemented menu
 function helpToNotImplemented() {
@@ -1267,10 +1303,12 @@ Sound.prototype.play = function() {
 ///////////////////////////////////////
 let resources = (function () {
     // Sprites
-
+    const SCALE = 960 / 90;
+    const GHOST_SCALE = 960 / 72;
     const SPRITE_SIZE = 128;
 
-    let realSize = 90;
+    let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
+    let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
 
 
     // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
@@ -1279,7 +1317,7 @@ let resources = (function () {
 
     //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
     //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", 72, 72, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", ghostSize, ghostSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
     //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
     let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
@@ -1301,6 +1339,7 @@ let resources = (function () {
     let _sfxGainNode;
 
     let _masterVolume, _musicVolume, _sfxVolume;
+    let _previousVolume;
 
     // Context
     let AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -1350,7 +1389,7 @@ let resources = (function () {
         return null;
     }
     
-    function _setMasterVolume() {
+    function _setMasterVolume(vol) {
         _masterVolume = vol;
             
         _sfxGainNode.gain.value = _sfxVolume * vol;
@@ -1365,6 +1404,15 @@ let resources = (function () {
                 console.log("Error: an issue occurred when saving volume data.");
             }
         }
+    }
+
+    function _mute() {
+        _previousVolume = _masterVolume;
+        _setMasterVolume(0);
+    }
+
+    function _unmute() {
+        _setMasterVolume(_previousVolume);
     }
 
     function _putSpriteBack(spr) {
@@ -1397,6 +1445,10 @@ let resources = (function () {
 
         initVolume: _initVolume,
         setMasterVolume: _setMasterVolume,
+
+        mute: _mute,
+        unmute: _unmute,
+
         putSpriteBack: _putSpriteBack
     };
 })();;
@@ -1526,8 +1578,7 @@ let renderer = (function () {
                         svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                         use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 
-                        use.setAttributeNS("http://www.w3.org/1999/xlink", "href", "#heart");
-                        use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#heart");
+                        use.setAttribute("href", "#heart");
 
                         svg.appendChild(use);
                         LIVES_DIV.appendChild(svg);
@@ -2551,8 +2602,7 @@ resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
 restartBtn.addEventListener("click", pauseToNotImplemented, false);
 exitBtn.addEventListener("click", pauseToNotImplemented, false);
 
-miniMusicBtn.addEventListener("click", pauseToNotImplemented, false);
-miniVolumeBtn.addEventListener("click", pauseToNotImplemented, false);
+miniVolumeBtn.addEventListener("click", toggleVolume, false);
 miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
 
 

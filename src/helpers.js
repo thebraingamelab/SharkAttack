@@ -2,6 +2,25 @@
 // Helper functions/objects
 ///////////////////////////////////////
 
+// Toggles muted or unmuted states
+let toggleVolume = (function() {
+    let muted = false;
+    let use = miniVolumeBtn.firstElementChild.firstElementChild;
+
+    return function () {
+        muted = !muted;
+
+        if (muted) {
+            use.setAttribute("href", "#no-volume-icon");
+            resources.mute();
+        }
+        else {
+            use.setAttribute("href", "#volume-icon");
+            resources.unmute();
+        }
+    };
+})();
+
 // Specifically switches from help menu to not implemented menu
 function helpToNotImplemented() {
     switchMenu(helpMenu, notImplementedMenu);

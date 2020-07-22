@@ -44,6 +44,10 @@
           <path d="M35.9667 0H31.5V21.9672H35.9667V0Z"/>
         </symbol>
 
+        <symbol id="no-volume-icon" viewBox="0 0 36 22">
+            <path d="M6.36667 4.71194H0V17.2552H6.36667L15.9333 21.9672V0L6.36667 4.71194Z"/>
+          </symbol>
+
         <symbol id="heart" viewBox="0 0 13.948135 11.892736">
             <path d="m 3.6844148,8.9068034 c -4.00686499,-3.85432 -3.98952899,-3.81162 -2.650092,-6.52785 l 0.855638,-1.73514992 1.856341,0.0765 1.856342,0.0765 0.836116,1.57457992 0.836116,1.57459 0.874318,-1.77302 0.874317,-1.77302992 h 1.7759002 1.7759 l 0.706492,1.52135992 c 0.388571,0.83674 0.771629,1.97877 0.851241,2.53783 0.143364,1.00675 0.112153,1.04914 -3.262967,4.43177 -1.8742432,1.8784096 -3.4689642,3.4091996 -3.5438242,3.4017496 -0.07486,-0.007 -1.713687,-1.53106 -3.641838,-3.3858096 z"/>
         </symbol>
@@ -58,7 +62,7 @@
     <!-- Your JS/CSS files go here -->
     <!-- Note the defer attribute is necessary to ensure sequential execution of the scripts -->
 
-    <script src="build/nback.min.js" defer></script>
+    <script src="build/nback.js" defer></script>
 </head>
 
 <!-- The body is selected as the game container -->
@@ -87,13 +91,13 @@
 
             <div id="pause-box" class="bar-button">
                 <button id="pause">
-                    <svg><use href="#pause-icon" xlink:href="#pause-icon"></use></svg>
+                    <svg><use href="#pause-icon"></use></svg>
                 </button>
             </div>
 
             <div id="help-box" class="bar-button">
                 <button id="help">
-                    <svg><use href="#question-mark" xlink:href="#question-mark"></use></svg>
+                    <svg><use href="#question-mark"></use></svg>
                 </button>
             </div>
 
@@ -102,7 +106,7 @@
             </div>
 
             <div id="lives">
-                <svg><use href="#heart" xlink:href="#heart"></use></svg><svg><use href="#heart" xlink:href="#heart"></use></svg><svg><use href="#heart" xlink:href="#heart"></use></svg>
+                <svg><use href="#heart"></use></svg><svg><use href="#heart"></use></svg><svg><use href="#heart"></use></svg>
             </div>
 
         </div>
@@ -125,14 +129,11 @@
             </button>
 
             <div class="mini-button-container">
-                <button id="music-mini" class="mini-button">
-                    <svg><use href="#music-note" xlink:href="#music-note"></use></svg>
-                </button>
                 <button id="volume-mini" class="mini-button">
-                    <svg><use href="#volume-icon" xlink:href="#volume-icon"></use></svg>
+                    <svg><use href="#volume-icon"></use></svg>
                 </button>
                 <button id="help-mini" class="mini-button">
-                    <svg><use href="#question-mark" xlink:href="#question-mark"></use></svg>
+                    <svg><use href="#question-mark"></use></svg>
                 </button>
             </div>
 
