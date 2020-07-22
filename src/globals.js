@@ -11,6 +11,9 @@ let lastEvent = null;
 let eventTime = null;
 let inputDeviceSwapTime = 1000;
 
+// Start button element
+let startBtn = document.getElementById("start-button");
+
 // Get the top bar elements
 let topBar = document.getElementById("top-bar");
 let pauseBox = document.getElementById("pause-box");

@@ -16,12 +16,14 @@ function pauseToNotImplemented() {
 function showMenu(menuElement) {
 
     // Show the menu
+    menuElement.style.display = "block";
     menuElement.classList.remove("center-popin");
     menuElement.classList.add("center-popout");
 
     // Dim the background
     dimmer.classList.remove("partial-fade-out");
     dimmer.classList.add("partial-fade-in");
+    dimmer.style.display = "block";
 
     // Hide the top bar
     topBar.style.display = "none";
@@ -33,12 +35,22 @@ function hideMenu(menuElement) {
     menuElement.classList.remove("center-popout");
     menuElement.classList.add("center-popin");
 
+    menuElement.addEventListener("animationend", function hideMenuElement() {
+        menuElement.style.display = "none";
+        menuElement.removeEventListener("animationend", hideMenuElement);
+    }, false);
+
     // Undim the background
     dimmer.classList.remove("partial-fade-in");
     dimmer.classList.add("partial-fade-out");
 
+    dimmer.addEventListener("animationend", function hideDimmer() {
+        dimmer.style.display = "none";
+        dimmer.removeEventListener("animationend", hideDimmer);
+    }, false);
+
     // Show the top bar
-    topBar.style.display = "";
+    topBar.style.display = "block";
 }
 
 // Animates the current menu to pop in and stay invisible, while the
@@ -49,8 +61,14 @@ function switchMenu(currentMenu, nextMenu) {
     currentMenu.classList.remove("center-popout");
     currentMenu.classList.add("center-popin");
 
+    currentMenu.addEventListener("animationend", function hideCurrent() {
+        currentMenu.style.display = "none";
+        currentMenu.removeEventListener("animationend", hideCurrent);
+    }, false);
+
     // After current menu's animation ends, show next menu
     currentMenu.addEventListener("animationend", function showNextMenu() {
+        nextMenu.style.display = "block";
         nextMenu.classList.remove("center-popin");
         nextMenu.classList.add("center-popout");
 
@@ -98,7 +116,7 @@ function resizeBarButtons() {
 
     // In case top bar isn't visible (which means clientHeight === 0),
     // temporarily make it visible to calculate true height
-    topBar.style.display = "";
+    topBar.style.display = "block";
     barHeight = topBar.clientHeight;
     topBar.style.display = originalDisplay;
 

@@ -225,14 +225,7 @@ else {
     });
 }*/
 
-// Start the game when the button is clicked
-document.getElementById("start-button").addEventListener("click", function() { game.start(); });
 
-// Prevent stuff like user scrolling
-// Passive: false is required for it to register
-document.body.addEventListener("touchmove", function (e) {
-    e.preventDefault();
-}, { passive: false });
 
 
 /*/ Load event for everything
@@ -251,6 +244,12 @@ window.addEventListener("load", function() {
     
     document.getElementById("container").style.display = "block";
 }, false);*/
+
+// Prevent stuff like user scrolling
+// Passive: false is required for it to register
+document.body.addEventListener("touchmove", function (e) {
+    e.preventDefault();
+}, { passive: false });
 
 //////////////////////////
 // Resize events
@@ -286,3 +285,11 @@ tutorialBtn.addEventListener("click", helpToNotImplemented, false);
 helpBackBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMenu); }, false);
 
 notImplementedBackBtn.addEventListener("click", function() { switchMenu(notImplementedMenu, pauseMenu); }, false);
+
+// Start the game when the button is clicked
+startBtn.addEventListener("click", function() {
+    game.start();
+
+    topBar.style.visibility = "visible";
+});
+

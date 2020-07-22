@@ -4,7 +4,6 @@
 
 let renderer = (function () {
     const SCORE_TEXT = document.getElementById("bar-label");
-    const START_BUTTON = document.getElementById("start-button");
     const LIVES_DIV = document.getElementById("lives");
 
     // Variables
@@ -94,12 +93,12 @@ let renderer = (function () {
             if (game && !game.started()) {
                 
                 // Make start button disappear
-                START_BUTTON.style.display = "block";
+                startBtn.style.display = "block";
             }
             else if (game) {
 
                 // Make start button disappear
-                START_BUTTON.style.display = "none";
+                startBtn.style.display = "none";
 
                 numLives = game.player().life;
                 score = game.score();
