@@ -324,6 +324,9 @@ let game = (function() {
             //_player.sprite = resources.spr_explosion();
             _insertScore(Math.round(_score));
             
+            
+            tapToStart.textContent = "TAP TO TRY AGAIN!";
+            displayTapToStart();
             //console.log(_highScores);
         }
     }

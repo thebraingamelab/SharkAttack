@@ -92,13 +92,13 @@ let renderer = (function () {
 
             if (game && !game.started()) {
                 
-                // Make start button disappear
-                startBtn.style.display = "block";
+                // Make start button appear
+                //startBtn.style.display = "block";
             }
             else if (game) {
 
                 // Make start button disappear
-                startBtn.style.display = "none";
+                //startBtn.style.display = "none";
 
                 numLives = game.player().life;
                 score = game.score();
@@ -137,57 +137,63 @@ let renderer = (function () {
     function _render(dt) {
         let entity;
         let entities = game.entities();
-        let i, len = entities.length;
+        let i, len;
 
         // Fill background
         _drawBG();
-        
-        // Update UI
-        _updateUI();
 
-        // Draw every game entity and update their sprites
-        for (i = 0; i < len; i++) {
-            entity = entities[i];
 
-            //_context.fillStyle = "#FF0000";
-            //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
+        if (entities) {
+            len = entities.length;
 
-            //_context.fillStyle = "#000000";
-            //if (clickBox !== null) {
-            //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
-            //}
+            // Update UI
+            _updateUI();
 
-            // Only render the enemy if it actually has a sprite to render
-            if (entity.sprite) {
-                // Update the sprite animation if the game is not paused
-                // TempEntity objects should animate even when paused
-                if (game.accelerating() || entity instanceof TempEntity || entity.sprite.fadeAmt !== 0) {
-                    entity.sprite.update(dt);
-                }
+            // Draw every game entity and update their sprites
+            for (i = 0; i < len; i++) {
+                entity = entities[i];
 
-                // Save foreground sprites for drawing after everyone else
-                if (entity.sprite.foreground) {
-                    _fgObjects.push(entity);
-                }
+                //_context.fillStyle = "#FF0000";
+                //_context.fillRect(entity.x, entity.y, entity.width, entity.height);
 
-                // Use different positioning for temp entities
-                else if (entity instanceof TempEntity) {
-                    _drawSprite(entity.sprite, entity.x + entity.width/4, entity.y);
-                }
+                //_context.fillStyle = "#000000";
+                //if (clickBox !== null) {
+                //   _context.fillRect(clickBox.x, clickBox.y, clickBox.width, clickBox.height);
+                //}
 
-                // Otherwise draw normally
-                else {
-                    _drawSprite(entity.sprite, entity.x/*-(entity.width/4)*/, entity.y/*-(entity.height/2)*/);
+                // Only render the enemy if it actually has a sprite to render
+                if (entity.sprite) {
+                    // Update the sprite animation if the game is not paused
+                    // TempEntity objects should animate even when paused
+                    if (game.accelerating() || entity instanceof TempEntity || entity.sprite.fadeAmt !== 0) {
+                        entity.sprite.update(dt);
+                    }
+
+                    // Save foreground sprites for drawing after everyone else
+                    if (entity.sprite.foreground) {
+                        _fgObjects.push(entity);
+                    }
+
+                    // Use different positioning for temp entities
+                    else if (entity instanceof TempEntity) {
+                        _drawSprite(entity.sprite, entity.x + entity.width/4, entity.y);
+                    }
+
+                    // Otherwise draw normally
+                    else {
+                        _drawSprite(entity.sprite, entity.x/*-(entity.width/4)*/, entity.y/*-(entity.height/2)*/);
+                    }
                 }
             }
-        }
 
-        for (i = 0; i < _fgObjects.length; i++) {
-            entity = _fgObjects[i];
-            _drawSprite(entity.sprite, entity.x, entity.y);
+            for (i = 0; i < _fgObjects.length; i++) {
+                entity = _fgObjects[i];
+                _drawSprite(entity.sprite, entity.x, entity.y);
+            }
+            _fgObjects.length = 0;
         }
-        _fgObjects.length = 0;
     }
+
 
     return {
         render: _render,

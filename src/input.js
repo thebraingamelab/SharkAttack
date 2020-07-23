@@ -251,6 +251,12 @@ document.body.addEventListener("touchmove", function (e) {
     e.preventDefault();
 }, { passive: false });
 
+window.addEventListener("load", function() {
+    renderer.render();
+    displayTapToStart();
+}, false);
+
+
 //////////////////////////
 // Resize events
 //////////////////////////
@@ -271,8 +277,16 @@ resizer.resize();
 pauseBtn.addEventListener("click", function() { showMenu(pauseMenu); }, false);
     
 resumeBtn.addEventListener("click", function() { hideMenu(pauseMenu); }, false);
-restartBtn.addEventListener("click", pauseToNotImplemented, false);
-exitBtn.addEventListener("click", pauseToNotImplemented, false);
+restartBtn.addEventListener("click", function() { 
+    switchMenu(pauseMenu, confirmationMenu); 
+    confirmationYes.firstElementChild.textContent = "YES, RESTART";
+    confirmationCallback = game.start;
+}, false);
+exitBtn.addEventListener("click", function() {
+    switchMenu(pauseMenu, confirmationMenu);
+    confirmationYes.firstElementChild.textContent = "YES, EXIT";
+    confirmationCallback = goToBGL;
+}, false);
 
 miniVolumeBtn.addEventListener("click", toggleVolume, false);
 miniHelpBtn.addEventListener("click", function() { switchMenu(pauseMenu, helpMenu); }, false);
@@ -285,10 +299,13 @@ helpBackBtn.addEventListener("click", function() { switchMenu(helpMenu, pauseMen
 
 notImplementedBackBtn.addEventListener("click", function() { switchMenu(notImplementedMenu, pauseMenu); }, false);
 
-// Start the game when the button is clicked
+confirmationYes.addEventListener("click", function() { confirmationCallback(); hideMenu(confirmationMenu);}, false);
+confirmationBack.addEventListener("click", function() { switchMenu(confirmationMenu, pauseMenu); }, false);
+
+/*/ Start the game when the button is clicked
 startBtn.addEventListener("click", function() {
     game.start();
 
     topBar.style.visibility = "visible";
-});
+});*/
 

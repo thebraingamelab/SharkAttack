@@ -2,6 +2,66 @@
 // Helper functions/objects
 ///////////////////////////////////////
 
+
+// Draw background and "tap to start" text on load
+let displayTapToStart = (function () {
+    let isDisplaying = false;
+
+    return function() {
+        // Dim the background
+        dimmer.classList.remove("partial-fade-out");
+        dimmer.classList.add("partial-fade-in");
+        dimmer.style.display = "block";
+
+        // Hide top bar
+        topBar.style.visibility = "hidden";
+
+        tapInterval = window.setInterval(function() {
+            if (tapToStart.style.display === "none") {
+                tapToStart.style.display = "";
+            }
+            else {
+                tapToStart.style.display = "none";
+            }
+
+            // Stop displaying message on tap, then start game
+            if (!isDisplaying) {
+                isDisplaying = true;
+
+                resizer.getCanvas().addEventListener("click", function tappedAndStarted() {
+                    window.clearInterval(tapInterval);
+                    tapToStart.style.display = "none";
+                    topBar.style.visibility = "visible";
+
+                    // Undim the background
+                    dimmer.classList.remove("partial-fade-in");
+                    dimmer.classList.add("partial-fade-out");
+
+                    dimmer.addEventListener("animationend", function hideDimmer() {
+                        dimmer.style.display = "none";
+                        dimmer.removeEventListener("animationend", hideDimmer);
+                    }, false);
+
+                    isDisplaying = false;
+
+                    game.start();
+
+                    resizer.getCanvas().removeEventListener("click", tappedAndStarted);
+                }, false);
+            }
+        }, 500);
+
+        
+    };
+})();
+
+
+
+// Navigate to thebraingamelab.org
+function goToBGL() {
+    window.location.assign("https://thebraingamelab.org/");
+}
+
 // Toggles muted or unmuted states
 let toggleVolume = (function() {
     let muted = false;

@@ -12,7 +12,9 @@ let eventTime = null;
 let inputDeviceSwapTime = 1000;
 
 // Start button element
-let startBtn = document.getElementById("start-button");
+//let startBtn = document.getElementById("start-button");
+let tapToStart = document.getElementById("tap-to-start");
+let tapInterval;
 
 // Get the top bar elements
 let topBar = document.getElementById("top-bar");
@@ -39,6 +41,11 @@ let tutorialBtn = document.getElementById("tutorial");
 
 let notImplementedMenu = document.getElementById("not-implemented-menu");
 let notImplementedBackBtn = document.getElementById("not-implemented-back");
+
+let confirmationMenu = document.getElementById("confirmation-menu");
+let confirmationYes = document.getElementById("confirmation-yes");
+let confirmationBack = document.getElementById("confirmation-back");
+let confirmationCallback = null;
 
 let dimmer = document.getElementById("dimmer");
 
