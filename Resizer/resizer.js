@@ -1,4 +1,4 @@
-let resizer = (function() {
+;let resizer = (function() {
     "use strict";
 
     // This is all poot if config isn't loaded

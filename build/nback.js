@@ -1,4 +1,4 @@
-;(function(){
+;let gameAccessor = (function(){
 "use strict";
 let config = {
 
@@ -81,7 +81,7 @@ let config = {
 };
 
 ;
-let resizer = (function() {
+;let resizer = (function() {
     "use strict";
 
     // This is all poot if config isn't loaded
@@ -2714,4 +2714,7 @@ startBtn.addEventListener("click", function() {
 });*/
 
 
+let exportedObj = {};
+exportedObj.initialize = function(){console.log("Edit the Gruntfile to use the real initialize function.");};
+return exportedObj;
 })();
