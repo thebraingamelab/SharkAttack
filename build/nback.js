@@ -792,11 +792,7 @@ function mutableRemoveIndex(array, index) {
     }
 
     array[index] = array[array.length-1];
-
-    // replace with pop here
-    array[array.length-1] = undefined;
-
-    array.length = array.length-1;
+    array.pop();
 }
 
 
