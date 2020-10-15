@@ -77,17 +77,47 @@ let game = (function() {
 
         let wavesPassed;
         let wavesSpawned;
+        let spawn;
 
         let tutorialEvents;
         let tutorialCounter;
 
+        let fogEvents;
         let fog1, fog2, fog3;
+
+        let waveMap;
 
         function updateWavesPassed() {
             wavesPassed++;
         }
 
-        function init() {
+        function init(levelData) {
+
+            // If passed an array of levels
+            if ( Array.isArray(levelData) ) {
+
+                console.log("Array of levels not handled yet.");
+
+                /*
+                for (let i = 0; i < levels.length; i++) {
+                    // load level data here
+                }*/
+            }
+
+            // If just one level
+            else if (levelData) {
+                waveMap = levelData.map;
+
+                fogEvents = levelData.fogData;
+
+                spawn = spawnNextWave;
+            }
+
+            // If no levels are passed in
+            else {
+                spawn = spawnRandomWave;
+            }
+
             numClones = 0;
             cloneList = [];
 
@@ -112,8 +142,162 @@ let game = (function() {
             // Initialize to something that enemies will never reach
             invisTurningPoint = GAME_FIELD_HEIGHT * 2;
         }
+
+        function spawnNextWave() {
+            let nextWave, i;
+
+            // If there are still waves left...
+            if ( waveMap.length && waveMap.length > 0 ) {
+
+                // Get the next wave
+                nextWave = waveMap[waveMap.length-1];
+                waveMap.pop();
+
+                // Fog events
+
+                /*
+                ///////
+                above in init():
+                let fogs = [fog1, fog2, fog3, fog4];
+                ///////
+
+                let wavesObscured = fogEvents[wavesPassed];
+                for (i = 0; i < wavesObscured; i++) {
+                    fogs[i].x = 0;
+                    fogs[i].y = invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
+                    fogs[i].sprite.alpha = 0;
+                    fogs[i].sprite.fadeAmt = 0.04;
+                }
+                */
+
+                switch(wavesPassed) {
+                    case 4:
+                        fog1.x = 0;
+                        fog1.y = invisTurningPoint-_newWaveThreshold+20;
+                        fog1.sprite.alpha = 0;
+                        fog1.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 18:
+                    case 78:
+                        fog2.x = 0;
+                        fog2.y = invisTurningPoint-_newWaveThreshold+130;
+                        fog2.sprite.alpha = 0;
+                        fog2.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 33:
+                    case 118:
+                        fog3.x = 0;
+                        fog3.y = invisTurningPoint-_newWaveThreshold+130;
+                        fog3.sprite.alpha = 0;
+                        fog3.sprite.fadeAmt = 0.04;
+                        break;
+
+                    case 58:
+                        fog2.sprite.fadeAmt = -0.04;
+                        fog3.sprite.fadeAmt = -0.04;
+                        break;
+                }
+
+                // Wave events
+                switch(wavesSpawned) {
+                    case 0:
+                    case 1:
+                    case 2:
+                        isTutorialWave = true;
+                        break;
+
+                    case 5:
+                    case 6:
+                    case 7:
+                        // Increase graves
+                        numClones = 1;
+                        
+                        // Start disappearing
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        isTutorialWave = true;
+                        break;
+
+                    case 20:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 35:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 60:
+                        numClones = 2;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 80:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 130:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    case 200:
+                        numClones = 3;
+                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                        break;
+
+                    case 220:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                        break;
+
+                    case 330:
+                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                        break;
+
+                    default:
+                        if (wavesSpawned > 350) {
+                            invisTurningPoint = GAME_FIELD_HEIGHT / 5;
+                        }
+                }
+
+                // Make the enemy and its grave(s)
+                for (i = 0; i < nextWave.length; i++) {
+                    enemy = _enemyPool.take();
+
+                    // Is this one the real one?
+                    enemy.isFake = !!nextWave[i];
+
+                    if (enemy.isFake) {
+                        enemy.sprite = resources.spr_grave();
+                    }
+                    else {
+                        enemy.sprite = resources.spr_enemy();
+                        enemy.sprite.addLayer(resources.spr_grave());
+                        enemy.draw = true;
+                    }
+
+                    enemy.lane = i;
+                    enemy.x = _lanes.getCenterX(i);
+                    enemy.y = -10;
+                    enemy.speed = _enemySpeed;
+                    enemy.invisPointY = invisTurningPoint;
+                    enemy.width = enemy.sprite.width;
+                    enemy.height = enemy.sprite.width;
+
+                    cloneList[i] = enemy;
+                    _addEntity(enemy);
+                }
+
+                // Update number of waves spawned
+                wavesSpawned++;
+            }
+
+            // No more waves left
+            else {
+                console.log("No more waves!");
+            }
+        }
         
-        function spawn() {
+        function spawnRandomWave() {
             let enemy, realEnemy, enemyLane, i;
             let isTutorialWave = false;
 
@@ -271,7 +455,7 @@ let game = (function() {
             init: init,
             updateWavesPassed: updateWavesPassed,
             showTutorial: showTutorial,
-            spawn: spawn,
+            spawn: function() { spawn(); },
             wavesPassed: function() { return wavesPassed; }
         };
     })();
@@ -331,8 +515,23 @@ let game = (function() {
         }
     }
 
+    /*/ Initialize levels
+    function _initialize(levelData) {
+        console.log("The game object's initialize function needs to be finished.");
+
+        if (levelData) {
+            // replace "_waves.init();" in game.start
+            // with something that loads level data
+            
+        }
+        else {
+            // infinite mode
+            _waves.init(); // but after _start stuff has ran
+        }
+    }*/
+
     // Start game
-    function _start() {
+    function _start(levelData) {
         if (_entities) { 
             _removeEntities(_entities);
         }
@@ -348,6 +547,11 @@ let game = (function() {
         _score = 0;
         _scoreFraction = 0;
         _lastFrameTime = 0;
+
+        if (levelData) {
+
+        }
+        
         _waves.init();
 
         

@@ -51,3 +51,50 @@ let dimmer = document.getElementById("dimmer");
 
 // Dimension value for top bar buttons
 let boxSize;
+
+// Trial data
+let performance_data = {
+    selections: [],
+    inputType: "none",
+    timeToPick: [],
+    wavesCompleted: 0
+};
+
+let level_data = {
+    numWaves: 0,
+    map: [],
+    fogData: {}
+};
+/*
+
+        performance_data = {
+            selections: [1, 0, 2, 1, 3, 2],
+            inputType: "click" (or "touch"),
+            timeToPick: [], // time it took to pick a grave for each wave
+            wavesCompleted: 0,
+        }
+        level_parameters = {
+            numWaves: 118,
+
+            // do this but reverse order of waves
+            map: [[0, 1],
+                  [1, 0, 0],
+                  [0, 0, 1],
+                  [0, 1, 0],
+                  [0, 1, 0, 0],
+                  [0, 0, 1, 0]....],
+
+            fogData: {
+                4: 1,
+                18: 2,
+                33: 3,
+                58: 4,
+                78: 1,
+                118: 2
+            }
+
+            waveData: [{spaceBetween: 94, ...}, {spaceBetween: 76, ...}, ....]
+                OR
+            spacingData: [[94, 72], [88, 69, 99], ...]
+        }
+        */

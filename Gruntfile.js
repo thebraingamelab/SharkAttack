@@ -25,7 +25,7 @@ module.exports = function(grunt) {
           options: {
             separator: ';\n',
             banner: ';let gameAccessor = (function(){\n"use strict";\n',
-            footer: '\nlet exportedObj = {};\nexportedObj.initialize = function(){console.log("Edit the Gruntfile to use the real initialize function.");};\nreturn exportedObj;\n})();'
+            footer: '\nlet exportedObj = {};\nexportedObj.initialize = game.initialize;\nreturn exportedObj;\n})();'
           },
 
           build: {
