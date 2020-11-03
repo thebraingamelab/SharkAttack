@@ -158,6 +158,7 @@ let game = (function() {
                 theFog.sprite.fadeAmt = -FOG_FADE_SPEED;
 
                 fogPool.putBack(theFog);
+                _removeEntities([theFog]);
             }
 
             // Add in fogs, if needed
