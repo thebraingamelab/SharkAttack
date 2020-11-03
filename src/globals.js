@@ -65,6 +65,11 @@ let level_data = {
     map: [],
     fogData: {}
 };
+
+// Temporary ease-of-access globals (relocate soon)
+let _enemyStart = -10;
+let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
+
 /*
 
         performance_data = {
@@ -94,6 +99,8 @@ let level_data = {
             }
 
             waveData: [{spaceBetween: 94, ...}, {spaceBetween: 76, ...}, ....]
+                                   OR
+                      [{newWaveThreshold: 40, ...}, {newWaveThreshold: 20, ...}, ...}]
                 OR
             spacingData: [[94, 72], [88, 69, 99], ...]
         }

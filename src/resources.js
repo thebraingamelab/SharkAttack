@@ -9,6 +9,7 @@ let resources = (function () {
 
     let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
     let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
+    let fogSize = realSize + (_newWaveThreshold - _enemyStart);//(GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
 
 
     // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
@@ -29,8 +30,7 @@ let resources = (function () {
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     
-    let _fogSize = (GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
-    let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _fogSize, 438, 266, 1, 0, 0, 0);
+    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, realSize*2.5, 438, 266, 1, 0, 0, 0);
 
     // Audio
     let _audioContext;

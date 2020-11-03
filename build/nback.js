@@ -577,6 +577,11 @@ let level_data = {
     map: [],
     fogData: {}
 };
+
+// Temporary ease-of-access globals (relocate soon)
+let _enemyStart = -10;
+let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
+
 /*
 
         performance_data = {
@@ -606,6 +611,8 @@ let level_data = {
             }
 
             waveData: [{spaceBetween: 94, ...}, {spaceBetween: 76, ...}, ....]
+                                   OR
+                      [{newWaveThreshold: 40, ...}, {newWaveThreshold: 20, ...}, ...}]
                 OR
             spacingData: [[94, 72], [88, 69, 99], ...]
         }
@@ -1421,6 +1428,7 @@ let resources = (function () {
 
     let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
     let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
+    let fogSize = realSize + (_newWaveThreshold - _enemyStart);//(GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
 
 
     // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
@@ -1441,8 +1449,7 @@ let resources = (function () {
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     
-    let _fogSize = (GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
-    let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _fogSize, 438, 266, 1, 0, 0, 0);
+    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, realSize*2.5, 438, 266, 1, 0, 0, 0);
 
     // Audio
     let _audioContext;
@@ -1782,7 +1789,6 @@ let game = (function() {
     let _enemySpeed = GAME_SPEED;
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
-    let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
     let _clickZone = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
 
     let _lastFrameTime;
@@ -1851,7 +1857,9 @@ let game = (function() {
         let tutorialEvents;
         let tutorialCounter;
 
-        let fogEvents;
+        const FOG_FADE_SPEED = 0.04;
+        let fogs;
+        let fogPool;
         let fog1, fog2, fog3;
 
         let waveMap;
@@ -1896,6 +1904,9 @@ let game = (function() {
             tutorialEvents = [];
             tutorialCounter = 0;
 
+            fogPool = new CloneablePool(new Entity(0,0,0,0,null));
+            fogs = [];
+            /*
             fog1 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
             fog2 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
             fog3 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
@@ -1906,10 +1917,43 @@ let game = (function() {
 
             _addEntity(fog1);
             _addEntity(fog2);
-            _addEntity(fog3);
+            _addEntity(fog3);*/
 
             // Initialize to something that enemies will never reach
             invisTurningPoint = GAME_FIELD_HEIGHT * 2;
+        }
+
+        function setFogLevel(wavesObscured) {
+            let theFog;
+            let i;
+
+            // Remove fogs, if needed
+            while (fogs.length > wavesObscured) {
+                theFog = fogs.pop();
+
+                theFog.sprite.fadeAmt = -FOG_FADE_SPEED;
+
+                fogPool.putBack(theFog);
+            }
+
+            // Add in fogs, if needed
+            i = fogs.length;
+            while (fogs.length < wavesObscured) {
+
+                theFog = fogPool.take();
+
+                theFog.sprite = resources.spr_fog();
+                theFog.sprite.alpha = 0;
+                theFog.sprite.fadeAmt = FOG_FADE_SPEED;
+                theFog.sprite.foreground = true;
+                theFog.x = 0;
+                theFog.y = _stoppingThreshold - _newWaveThreshold - cloneList[0].sprite.height - (theFog.sprite.height*i);// - (theFog.sprite.height/2) - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
+                
+                fogs.push(theFog);
+                _addEntity(theFog);
+
+                i++;
+            }
         }
 
         function spawnNextWave() {
@@ -1935,7 +1979,7 @@ let game = (function() {
                     fogs[i].x = 0;
                     fogs[i].y = invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
                     fogs[i].sprite.alpha = 0;
-                    fogs[i].sprite.fadeAmt = 0.04;
+                    fogs[i].sprite.fadeAmt = FOG_FADE_SPEED;
                 }
                 */
 
@@ -1944,7 +1988,7 @@ let game = (function() {
                         fog1.x = 0;
                         fog1.y = invisTurningPoint-_newWaveThreshold+20;
                         fog1.sprite.alpha = 0;
-                        fog1.sprite.fadeAmt = 0.04;
+                        fog1.sprite.fadeAmt = FOG_FADE_SPEED;
                         break;
 
                     case 18:
@@ -1952,7 +1996,7 @@ let game = (function() {
                         fog2.x = 0;
                         fog2.y = invisTurningPoint-_newWaveThreshold+130;
                         fog2.sprite.alpha = 0;
-                        fog2.sprite.fadeAmt = 0.04;
+                        fog2.sprite.fadeAmt = FOG_FADE_SPEED;
                         break;
 
                     case 33:
@@ -1960,12 +2004,12 @@ let game = (function() {
                         fog3.x = 0;
                         fog3.y = invisTurningPoint-_newWaveThreshold+130;
                         fog3.sprite.alpha = 0;
-                        fog3.sprite.fadeAmt = 0.04;
+                        fog3.sprite.fadeAmt = FOG_FADE_SPEED;
                         break;
 
                     case 58:
-                        fog2.sprite.fadeAmt = -0.04;
-                        fog3.sprite.fadeAmt = -0.04;
+                        fog2.sprite.fadeAmt = -FOG_FADE_SPEED;
+                        fog3.sprite.fadeAmt = -FOG_FADE_SPEED;
                         break;
                 }
 
@@ -2076,31 +2120,35 @@ let game = (function() {
             // Fog events
             switch(wavesPassed) {
                 case 4:
-                    fog1.x = 0;
+                    /*fog1.x = 0;
                     fog1.y = invisTurningPoint-_newWaveThreshold+20;
                     fog1.sprite.alpha = 0;
-                    fog1.sprite.fadeAmt = 0.04;
+                    fog1.sprite.fadeAmt = FOG_FADE_SPEED;*/
+                    setFogLevel(1);
                     break;
 
                 case 18:
                 case 78:
-                    fog2.x = 0;
+                    /*fog2.x = 0;
                     fog2.y = invisTurningPoint-_newWaveThreshold+130;
                     fog2.sprite.alpha = 0;
-                    fog2.sprite.fadeAmt = 0.04;
+                    fog2.sprite.fadeAmt = FOG_FADE_SPEED;*/
+                    setFogLevel(2);
                     break;
 
                 case 33:
                 case 118:
-                    fog3.x = 0;
+                    /*fog3.x = 0;
                     fog3.y = invisTurningPoint-_newWaveThreshold+130;
                     fog3.sprite.alpha = 0;
-                    fog3.sprite.fadeAmt = 0.04;
+                    fog3.sprite.fadeAmt = FOG_FADE_SPEED;*/
+                    setFogLevel(3);
                     break;
 
                 case 58:
-                    fog2.sprite.fadeAmt = -0.04;
-                    fog3.sprite.fadeAmt = -0.04;
+                    /*fog2.sprite.fadeAmt = -FOG_FADE_SPEED;
+                    fog3.sprite.fadeAmt = -FOG_FADE_SPEED;*/
+                    setFogLevel(1);
                     break;
             }
 
@@ -2169,10 +2217,10 @@ let game = (function() {
             // Make the enemy and its grave(s)
             for (i = 0; i <= numClones; i++) {
                 enemy = _enemyPool.take();
-
+                
                 enemy.lane = enemyLane+i;
                 enemy.x = _lanes.getCenterX(enemyLane+i);
-                enemy.y = -10;
+                enemy.y = _enemyStart;
                 enemy.speed = _enemySpeed;
                 enemy.invisPointY = invisTurningPoint;
                 enemy.sprite = resources.spr_grave();
