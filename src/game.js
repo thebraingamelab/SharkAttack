@@ -11,6 +11,13 @@ let game = (function() {
     let _entities, _entitiesToRemove, _enemies, _frontRowEnemies;
     let _player;
     let _enemySpeed = GAME_SPEED;
+    
+    let _enemyStart = -resources.STANDARD_SIZE;
+
+    // Basically just takes the (HEIGHT/6) and rounds it to nearest factor of enemy speed
+    // (also accounting for the offset of _enemyStart)
+    let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
     _stoppingThreshold = _stoppingThreshold - _stoppingThreshold%_enemySpeed;
@@ -85,7 +92,6 @@ let game = (function() {
         const FOG_FADE_SPEED = 0.04;
         let fogs;
         let fogPool;
-        let fog1, fog2, fog3;
 
         let waveMap;
 
@@ -110,7 +116,7 @@ let game = (function() {
             else if (levelData) {
                 waveMap = levelData.map;
 
-                fogEvents = levelData.fogData;
+                fogLevels = levelData.fogLevels;
 
                 spawn = spawnNextWave;
             }
@@ -131,18 +137,6 @@ let game = (function() {
 
             fogPool = new CloneablePool(new Entity(0,0,0,0,null));
             fogs = [];
-            /*
-            fog1 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
-            fog2 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
-            fog3 = new Entity(-GAME_FIELD_WIDTH, -GAME_FIELD_HEIGHT, 0, 0, resources.spr_fog());
-
-            fog1.sprite.foreground = true;
-            fog2.sprite.foreground = true;
-            fog3.sprite.foreground = true;
-
-            _addEntity(fog1);
-            _addEntity(fog2);
-            _addEntity(fog3);*/
 
             // Initialize to something that enemies will never reach
             invisTurningPoint = GAME_FIELD_HEIGHT * 2;
@@ -175,8 +169,9 @@ let game = (function() {
                 theFog.x = 0;
 
                 waveDistance = _newWaveThreshold - _enemyStart;
-                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i) - (_enemies[0].height/2);// - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
-                
+                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i) - (_enemies[0].height/2);
+                //invisTurningPoint = theFog.y + (_enemies[0].height/2);
+
                 fogs.push(theFog);
                 _addEntity(theFog);
 
@@ -185,120 +180,24 @@ let game = (function() {
         }
 
         function spawnNextWave() {
-            let nextWave, i;
+            let newFogLevel, nextWave, i;
 
             // If there are still waves left...
             if ( waveMap.length && waveMap.length > 0 ) {
 
                 // Get the next wave
-                nextWave = waveMap[waveMap.length-1];
-                waveMap.pop();
+                nextWave = waveMap.pop();
 
                 // Fog events
-
-                /*
-                ///////
-                above in init():
-                let fogs = [fog1, fog2, fog3, fog4];
-                ///////
-
-                let wavesObscured = fogEvents[wavesPassed];
-                for (i = 0; i < wavesObscured; i++) {
-                    fogs[i].x = 0;
-                    fogs[i].y = invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
-                    fogs[i].sprite.alpha = 0;
-                    fogs[i].sprite.fadeAmt = FOG_FADE_SPEED;
-                }
-                */
-
-                switch(wavesPassed) {
-                    case 4:
-                        fog1.x = 0;
-                        fog1.y = invisTurningPoint-_newWaveThreshold+20;
-                        fog1.sprite.alpha = 0;
-                        fog1.sprite.fadeAmt = FOG_FADE_SPEED;
-                        break;
-
-                    case 18:
-                    case 78:
-                        fog2.x = 0;
-                        fog2.y = invisTurningPoint-_newWaveThreshold+130;
-                        fog2.sprite.alpha = 0;
-                        fog2.sprite.fadeAmt = FOG_FADE_SPEED;
-                        break;
-
-                    case 33:
-                    case 118:
-                        fog3.x = 0;
-                        fog3.y = invisTurningPoint-_newWaveThreshold+130;
-                        fog3.sprite.alpha = 0;
-                        fog3.sprite.fadeAmt = FOG_FADE_SPEED;
-                        break;
-
-                    case 58:
-                        fog2.sprite.fadeAmt = -FOG_FADE_SPEED;
-                        fog3.sprite.fadeAmt = -FOG_FADE_SPEED;
-                        break;
+                newFogLevel = fogLevels[wavesPassed];
+                if (newFogLevel) {
+                    setFogLevel(newFogLevel);
                 }
 
-                // Wave events
-                switch(wavesSpawned) {
-                    case 0:
-                    case 1:
-                    case 2:
-                        isTutorialWave = true;
-                        break;
-
-                    case 5:
-                    case 6:
-                    case 7:
-                        // Increase graves
-                        numClones = 1;
-                        
-                        // Start disappearing
-                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                        isTutorialWave = true;
-                        break;
-
-                    case 20:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                        break;
-
-                    case 35:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                        break;
-
-                    case 60:
-                        numClones = 2;
-                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                        break;
-
-                    case 80:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                        break;
-
-                    case 130:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                        break;
-
-                    case 200:
-                        numClones = 3;
-                        invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                        break;
-
-                    case 220:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                        break;
-
-                    case 330:
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                        break;
-
-                    default:
-                        if (wavesSpawned > 350) {
-                            invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                        }
-                }
+                // need to account for the number of graves that
+                // spawned before the fog level was set - these graves do
+                // not have the correct invisTurningPoint
+                
 
                 // Make the enemy and its grave(s)
                 for (i = 0; i < nextWave.length; i++) {
@@ -348,34 +247,20 @@ let game = (function() {
             // Fog events
             switch(wavesPassed) {
                 case 4:
-                    /*fog1.x = 0;
-                    fog1.y = invisTurningPoint-_newWaveThreshold+20;
-                    fog1.sprite.alpha = 0;
-                    fog1.sprite.fadeAmt = FOG_FADE_SPEED;*/
                     setFogLevel(1);
                     break;
 
                 case 18:
                 case 78:
-                    /*fog2.x = 0;
-                    fog2.y = invisTurningPoint-_newWaveThreshold+130;
-                    fog2.sprite.alpha = 0;
-                    fog2.sprite.fadeAmt = FOG_FADE_SPEED;*/
                     setFogLevel(2);
                     break;
 
                 case 33:
                 case 118:
-                    /*fog3.x = 0;
-                    fog3.y = invisTurningPoint-_newWaveThreshold+130;
-                    fog3.sprite.alpha = 0;
-                    fog3.sprite.fadeAmt = FOG_FADE_SPEED;*/
                     setFogLevel(3);
                     break;
 
                 case 58:
-                    /*fog2.sprite.fadeAmt = -FOG_FADE_SPEED;
-                    fog3.sprite.fadeAmt = -FOG_FADE_SPEED;*/
                     setFogLevel(1);
                     break;
             }
@@ -395,47 +280,57 @@ let game = (function() {
                     numClones = 1;
                     
                     // Start disappearing
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
                     isTutorialWave = true;
                     break;
 
                 case 20:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
                     break;
 
                 case 35:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
                     break;
 
                 case 60:
                     numClones = 2;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
                     break;
 
                 case 80:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
                     break;
 
                 case 130:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
                     break;
 
                 case 200:
                     numClones = 3;
-                    invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
                     break;
 
                 case 220:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
                     break;
 
                 case 330:
-                    invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
                     break;
 
                 default:
                     if (wavesSpawned > 350) {
-                        invisTurningPoint = GAME_FIELD_HEIGHT / 5;
+                        //invisTurningPoint = GAME_FIELD_HEIGHT / 5;
+                        invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*4;
                     }
             }
 
@@ -732,17 +627,8 @@ let game = (function() {
                 entity.update(dt);
             }
 
-            // Enemy in the clickZone? Keep track in frontRow array
-            if (entity instanceof Enemy && 
-                entity.y >= _clickZone &&
-                !entity.clicked &&
-                _frontRowEnemies.indexOf(entity) < 0) {
-
-                    _frontRowEnemies.push(entity);
-            }
-
             // Entity offscreen? Delet
-            if (entity.y > GAME_FIELD_HEIGHT) {
+            if (entity.y >= GAME_FIELD_HEIGHT) {
                 _entitiesToRemove.push(entity);
 
                 if (entity instanceof Enemy && !entity.isFake) {
@@ -755,6 +641,15 @@ let game = (function() {
                     if (_inputBuffered)
                         _toggleInputBuffer();
                 }
+            }
+            
+            // Enemy in the clickZone? Keep track in frontRow array
+            else if (entity instanceof Enemy && 
+                     entity.y >= _clickZone &&
+                     !entity.clicked &&
+                     _frontRowEnemies.indexOf(entity) < 0) {
+
+                _frontRowEnemies.push(entity);
             }
 
             /*/ Check collisions with player

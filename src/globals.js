@@ -63,16 +63,8 @@ let performance_data = {
 let level_data = {
     numWaves: 0,
     map: [],
-    fogData: {}
+    fogLevels: {}
 };
-
-// Temporary ease-of-access globals (relocate soon)
-let _enemyStart = -90;
-
-// Basically just takes the (HEIGHT/6) and rounds it to nearest factor of enemy speed
-// (also accounting for the offset of _enemyStart)
-let _newWaveThreshold = (GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
-
 
 /*
 
@@ -85,15 +77,19 @@ let _newWaveThreshold = (GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enem
         level_parameters = {
             numWaves: 118,
 
-            // do this but reverse order of waves
-            map: [[0, 1],
+            map: [....,
+                  [0, 0, 1, 0],
+                  [0, 1, 0, 0],
                   [1, 0, 0],
                   [0, 0, 1],
                   [0, 1, 0],
-                  [0, 1, 0, 0],
-                  [0, 0, 1, 0]....],
+                  [0, 1],
+                  [1],
+                  [1],
+                  [1]],
 
             fogData: {
+                // waveStart: fogLevel
                 4: 1,
                 18: 2,
                 33: 3,
