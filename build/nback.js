@@ -579,8 +579,12 @@ let level_data = {
 };
 
 // Temporary ease-of-access globals (relocate soon)
-let _enemyStart = -10;
-let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
+let _enemyStart = -90;
+
+// Basically just takes the (HEIGHT/6) and rounds it to nearest factor of enemy speed
+// (also accounting for the offset of _enemyStart)
+let _newWaveThreshold = (GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+
 
 /*
 
@@ -1422,34 +1426,21 @@ Sound.prototype.play = function() {
 ///////////////////////////////////////
 let resources = (function () {
     // Sprites
-    const SCALE = 960 / 90;
-    const GHOST_SCALE = 960 / 72;
     const SPRITE_SIZE = 128;
+    const STANDARD_SIZE = 90;
+    const GHOST_SIZE = 72;
 
-    let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
-    let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
-    let fogSize = realSize + (_newWaveThreshold - _enemyStart);//(GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
-
-
-    // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
-    // tiled(imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles)
     let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
-    //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
-    //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", ghostSize, ghostSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
-    //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
-    let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
-    _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
-    //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
+    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", GHOST_SIZE, GHOST_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
-    let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    //let _life = _spritePool.take().eventDriven("build/sprites/life.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    
-    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, realSize*2.5, 438, 266, 1, 0, 0, 0);
+    let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _check = _spritePool.take().eventDriven("build/sprites/check.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
+
+    let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", STANDARD_SIZE, STANDARD_SIZE, 64, 64, 2, 3, 0, 0);
+    _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
 
     // Audio
     let _audioContext;
@@ -1789,6 +1780,7 @@ let game = (function() {
     let _enemySpeed = GAME_SPEED;
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
+    _stoppingThreshold = _stoppingThreshold - _stoppingThreshold%_enemySpeed;
     let _clickZone = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
 
     let _lastFrameTime;
@@ -1924,7 +1916,7 @@ let game = (function() {
         }
 
         function setFogLevel(wavesObscured) {
-            let theFog;
+            let theFog, waveDistance;
             let i;
 
             // Remove fogs, if needed
@@ -1948,7 +1940,9 @@ let game = (function() {
                 theFog.sprite.fadeAmt = FOG_FADE_SPEED;
                 theFog.sprite.foreground = true;
                 theFog.x = 0;
-                theFog.y = _stoppingThreshold - _newWaveThreshold - cloneList[0].sprite.height - (theFog.sprite.height*i);// - (theFog.sprite.height/2) - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
+
+                waveDistance = _newWaveThreshold - _enemyStart;
+                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i) - (_enemies[0].height/2);// - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
                 
                 fogs.push(theFog);
                 _addEntity(theFog);
@@ -2262,6 +2256,7 @@ let game = (function() {
                 tutorialTap.x = _lanes.getCenterX( tutorialEvents[tutorialCounter++].lane );
                 tutorialTap.y = _stoppingThreshold;
                 tutorialTap.sprite = resources.spr_tapIcon();
+                tutorialTap.sprite.foreground = true;
                 tutorialTap.width = tutorialTap.sprite.width;
                 tutorialTap.height = tutorialTap.sprite.height;
 
@@ -2391,7 +2386,7 @@ let game = (function() {
         // Spawn player and first wave
         //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
         _player = new Player(-100, -100, null);
-        _addEntity(_player);
+        //_addEntity(_player);
         _waves.spawn();
 
         // Begin game loop
@@ -2399,8 +2394,9 @@ let game = (function() {
             _started = true;
             _updateFunc = this.update.bind(this);
 
-            if (_gameOverAnimation)
+            if (_gameOverAnimation) {
                 window.cancelAnimationFrame(_gameOverAnimation);
+            }
 
             window.requestAnimationFrame(_updateFunc);
         }
@@ -2523,8 +2519,9 @@ let game = (function() {
                     // Lose life for missing one
                     //_player.loseLife();
                     
-                    if (_inputBuffered)
+                    if (_inputBuffered) {
                         _toggleInputBuffer();
+                    }
                 }
             }
 
@@ -2579,7 +2576,6 @@ let game = (function() {
                 entity instanceof Enemy &&
                 entity.y >= _stoppingThreshold &&
                 !entity.triggeredPause) {
-
                     pauseThresholdPassed = true;
                     entity.triggeredPause = true;
             }

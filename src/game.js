@@ -13,6 +13,7 @@ let game = (function() {
     let _enemySpeed = GAME_SPEED;
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
+    _stoppingThreshold = _stoppingThreshold - _stoppingThreshold%_enemySpeed;
     let _clickZone = GAME_FIELD_HEIGHT - GAME_FIELD_HEIGHT/3;
 
     let _lastFrameTime;
@@ -148,7 +149,7 @@ let game = (function() {
         }
 
         function setFogLevel(wavesObscured) {
-            let theFog;
+            let theFog, waveDistance;
             let i;
 
             // Remove fogs, if needed
@@ -172,7 +173,9 @@ let game = (function() {
                 theFog.sprite.fadeAmt = FOG_FADE_SPEED;
                 theFog.sprite.foreground = true;
                 theFog.x = 0;
-                theFog.y = _stoppingThreshold - _newWaveThreshold - cloneList[0].sprite.height - (theFog.sprite.height*i);// - (theFog.sprite.height/2) - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
+
+                waveDistance = _newWaveThreshold - _enemyStart;
+                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i) - (_enemies[0].height/2);// - (theFog.sprite.height*i);//invisTurningPoint - _newWaveThreshold; // figure more standard way of doing this part
                 
                 fogs.push(theFog);
                 _addEntity(theFog);
@@ -486,6 +489,7 @@ let game = (function() {
                 tutorialTap.x = _lanes.getCenterX( tutorialEvents[tutorialCounter++].lane );
                 tutorialTap.y = _stoppingThreshold;
                 tutorialTap.sprite = resources.spr_tapIcon();
+                tutorialTap.sprite.foreground = true;
                 tutorialTap.width = tutorialTap.sprite.width;
                 tutorialTap.height = tutorialTap.sprite.height;
 
@@ -615,7 +619,7 @@ let game = (function() {
         // Spawn player and first wave
         //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
         _player = new Player(-100, -100, null);
-        _addEntity(_player);
+        //_addEntity(_player);
         _waves.spawn();
 
         // Begin game loop
@@ -623,8 +627,9 @@ let game = (function() {
             _started = true;
             _updateFunc = this.update.bind(this);
 
-            if (_gameOverAnimation)
+            if (_gameOverAnimation) {
                 window.cancelAnimationFrame(_gameOverAnimation);
+            }
 
             window.requestAnimationFrame(_updateFunc);
         }
@@ -803,7 +808,6 @@ let game = (function() {
                 entity instanceof Enemy &&
                 entity.y >= _stoppingThreshold &&
                 !entity.triggeredPause) {
-
                     pauseThresholdPassed = true;
                     entity.triggeredPause = true;
             }

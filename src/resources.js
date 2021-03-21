@@ -3,34 +3,21 @@
 ///////////////////////////////////////
 let resources = (function () {
     // Sprites
-    const SCALE = 960 / 90;
-    const GHOST_SCALE = 960 / 72;
     const SPRITE_SIZE = 128;
+    const STANDARD_SIZE = 90;
+    const GHOST_SIZE = 72;
 
-    let realSize = 90;//Math.round(GAME_FIELD_HEIGHT / SCALE);
-    let ghostSize = 72;//Math.round(GAME_FIELD_HEIGHT / GHOST_SCALE);
-    let fogSize = realSize + (_newWaveThreshold - _enemyStart);//(GAME_FIELD_HEIGHT/2) - (GAME_FIELD_HEIGHT/4);
-
-
-    // eventDriven(imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col)
-    // tiled(imgPath, width, height, frameWidth, frameHeight, row, col, xTiles, yTiles)
     let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
-    //let _playerWalkingUp = _spritePool.take().eventDriven("build/sprites/animals.png", 60, 60, 26, 37, 2, 6, 3, 3);
-    //_playerWalkingUp.animationEndEvent = _playerWalkingUp.resetAnimation;
-    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", ghostSize, ghostSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    //let _playerExplode = _spritePool.take().eventDriven("build/sprites/explosion.png", 51, 51, 223, 174, 21, 21, 0, 0);
-    //let _pileOfLeaves = _spritePool.take().tiled("build/sprites/grassland.png", GAME_FIELD_WIDTH, 60, 128, 128, 15, 4, 6, 1);
-    let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", realSize, realSize, 64, 64, 2, 3, 0, 0);
-    _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
-    //let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 128, 128, 0, 0, 4, 10);
+    let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", GHOST_SIZE, GHOST_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
-    let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    //let _life = _spritePool.take().eventDriven("build/sprites/life.png", SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _check = _spritePool.take().eventDriven("build/sprites/check.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", realSize, realSize, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
-    
-    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, realSize*2.5, 438, 266, 1, 0, 0, 0);
+    let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _check = _spritePool.take().eventDriven("build/sprites/check.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", STANDARD_SIZE, STANDARD_SIZE, SPRITE_SIZE, SPRITE_SIZE, 1, 0, 0, 0);
+    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
+
+    let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", STANDARD_SIZE, STANDARD_SIZE, 64, 64, 2, 3, 0, 0);
+    _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
 
     // Audio
     let _audioContext;

@@ -67,8 +67,12 @@ let level_data = {
 };
 
 // Temporary ease-of-access globals (relocate soon)
-let _enemyStart = -10;
-let _newWaveThreshold = GAME_FIELD_HEIGHT / 4;
+let _enemyStart = -90;
+
+// Basically just takes the (HEIGHT/6) and rounds it to nearest factor of enemy speed
+// (also accounting for the offset of _enemyStart)
+let _newWaveThreshold = (GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+
 
 /*
 
