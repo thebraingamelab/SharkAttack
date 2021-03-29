@@ -14,6 +14,7 @@ let game = (function() {
     
     let _enemyStart = -resources.STANDARD_SIZE;
 
+    // DEFAULT:
     // Basically just takes the (HEIGHT/10) and rounds it to nearest factor of enemy speed
     // (also accounting for the offset of _enemyStart)
     let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
@@ -37,7 +38,7 @@ let game = (function() {
 
     let _score;
     let _scoreFraction;
-    let _highScores;
+    //let _highScores;
     let _multiplier = 1;
 
     let _lanes = (function() {
@@ -414,7 +415,7 @@ let game = (function() {
         //console.log(_score);
     }
 
-    // Insert a score into list of high scores
+    /*/ Insert a score into list of high scores
     function _insertScore(score) {
         _highScores.push(score);
         // Sort scores, highest first
@@ -425,7 +426,7 @@ let game = (function() {
         if (typeof(Storage) !== "undefined") {
             localStorage.setItem("nback_scores", JSON.stringify(_highScores));
         }
-    }
+    }*/
 
     // Toggle buffer flag
     function _toggleInputBuffer() {
@@ -447,7 +448,7 @@ let game = (function() {
         if (!_gameOver) {
             _gameOver = true;
             //_player.sprite = resources.spr_explosion();
-            _insertScore(Math.round(_score));
+            //_insertScore(Math.round(_score));
             
             
             tapToStart.textContent = "TAP TO TRY AGAIN!";
@@ -455,21 +456,6 @@ let game = (function() {
             //console.log(_highScores);
         }
     }
-
-    /*/ Initialize levels
-    function _initialize(levelData) {
-        console.log("The game object's initialize function needs to be finished.");
-
-        if (levelData) {
-            // replace "_waves.init();" in game.start
-            // with something that loads level data
-            
-        }
-        else {
-            // infinite mode
-            _waves.init(); // but after _start stuff has ran
-        }
-    }*/
 
     // Start game
     function _start(levelData) {
@@ -489,15 +475,10 @@ let game = (function() {
         _scoreFraction = 0;
         _lastFrameTime = 0;
 
-        if (levelData) {
-
-        }
-        
-        _waves.init();
-
+        _waves.init(levelData);
         
 
-        // Access/store high scores in local storage
+        /*/ Access/store high scores in local storage
         if (typeof(Storage) !== "undefined") {
             try {
                 _highScores = JSON.parse(localStorage.getItem("nback_scores"));
@@ -509,7 +490,7 @@ let game = (function() {
             if (_highScores === null) {
                 _highScores = [];
             }
-        }
+        }*/
 
         // Spawn player and first wave
         //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));

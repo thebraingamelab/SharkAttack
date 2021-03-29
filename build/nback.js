@@ -575,7 +575,8 @@ let performance_data = {
 let level_data = {
     numWaves: 0,
     map: [],
-    fogLevels: {}
+    fogLevels: {},
+    waveSpacing: 110
 };
 
 /*
@@ -1780,6 +1781,7 @@ let game = (function() {
     
     let _enemyStart = -resources.STANDARD_SIZE;
 
+    // DEFAULT:
     // Basically just takes the (HEIGHT/10) and rounds it to nearest factor of enemy speed
     // (also accounting for the offset of _enemyStart)
     let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
@@ -2187,10 +2189,10 @@ let game = (function() {
         _highScores.sort(function(a, b){return b-a;});
         // Only top 10 scores
         _highScores = _highScores.slice(0, 10);
-        // Insert into local storage
+        /*/ Insert into local storage
         if (typeof(Storage) !== "undefined") {
             localStorage.setItem("nback_scores", JSON.stringify(_highScores));
-        }
+        }*/
     }
 
     // Toggle buffer flag
@@ -2222,21 +2224,6 @@ let game = (function() {
         }
     }
 
-    /*/ Initialize levels
-    function _initialize(levelData) {
-        console.log("The game object's initialize function needs to be finished.");
-
-        if (levelData) {
-            // replace "_waves.init();" in game.start
-            // with something that loads level data
-            
-        }
-        else {
-            // infinite mode
-            _waves.init(); // but after _start stuff has ran
-        }
-    }*/
-
     // Start game
     function _start(levelData) {
         if (_entities) { 
@@ -2255,15 +2242,10 @@ let game = (function() {
         _scoreFraction = 0;
         _lastFrameTime = 0;
 
-        if (levelData) {
-
-        }
-        
-        _waves.init();
-
+        _waves.init(levelData);
         
 
-        // Access/store high scores in local storage
+        /*/ Access/store high scores in local storage
         if (typeof(Storage) !== "undefined") {
             try {
                 _highScores = JSON.parse(localStorage.getItem("nback_scores"));
@@ -2275,7 +2257,7 @@ let game = (function() {
             if (_highScores === null) {
                 _highScores = [];
             }
-        }
+        }*/
 
         // Spawn player and first wave
         //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));

@@ -63,7 +63,8 @@ let performance_data = {
 let level_data = {
     numWaves: 0,
     map: [],
-    fogLevels: {}
+    fogLevels: {},
+    waveSpacing: 110
 };
 
 /*
