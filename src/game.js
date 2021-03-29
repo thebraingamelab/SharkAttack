@@ -14,9 +14,9 @@ let game = (function() {
     
     let _enemyStart = -resources.STANDARD_SIZE;
 
-    // Basically just takes the (HEIGHT/6) and rounds it to nearest factor of enemy speed
+    // Basically just takes the (HEIGHT/10) and rounds it to nearest factor of enemy speed
     // (also accounting for the offset of _enemyStart)
-    let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/6/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+    let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
 
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
@@ -169,7 +169,7 @@ let game = (function() {
                 theFog.x = 0;
 
                 waveDistance = _newWaveThreshold - _enemyStart;
-                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i) - (_enemies[0].height/2);
+                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i);// - (_enemies[0].height/2);
                 //invisTurningPoint = theFog.y + (_enemies[0].height/2);
 
                 fogs.push(theFog);
@@ -514,7 +514,7 @@ let game = (function() {
         // Spawn player and first wave
         //_addEntity(new Player(_lanes.getCenterX(1), GAME_FIELD_HEIGHT-60, resources.spr_playerWalkingUp()));
         _player = new Player(-100, -100, null);
-        //_addEntity(_player);
+        _addEntity(_player);
         _waves.spawn();
 
         // Begin game loop
