@@ -572,8 +572,8 @@ let performance_data = {
     wavesCompleted: 0
 };
 
-let level_data = {
-    numWaves: 0,
+let levelData = {
+    numWaves: 200,
     map: [],
     fogLevels: {},
     waveSpacing: 110
@@ -587,7 +587,7 @@ let level_data = {
             timeToPick: [], // time it took to pick a grave for each wave
             wavesCompleted: 0,
         }
-        level_parameters = {
+        levelData = {
             numWaves: 118,
 
             map: [....,
@@ -609,13 +609,14 @@ let level_data = {
                 58: 4,
                 78: 1,
                 118: 2
-            }
+            },
 
-            waveData: [{spaceBetween: 94, ...}, {spaceBetween: 76, ...}, ....]
-                                   OR
-                      [{newWaveThreshold: 40, ...}, {newWaveThreshold: 20, ...}, ...}]
-                OR
-            spacingData: [[94, 72], [88, 69, 99], ...]
+            graveColors = [['red', 'blue'], ['gray', 'green', 'red'],...],
+            graveShapes = [['cross', 'ordinal'], ['heart', 'cross', 'square'],...],
+
+            waveSpacing = 110 OR [400, 49, 385, ...],
+
+            betweenSpacing = 40 OR [[30, 40], [20, 80, 60],...]
         }
         */;
 ///////////////////////////////////////
@@ -1429,11 +1430,28 @@ let resources = (function () {
 
     let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
+    // let sprites = {
+    //     enemy: _spritePool.take().eventDriven("build/sprites/ghost.png", _GHOST_SIZE, _GHOST_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     tiledGrass: _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2),
+    //     bigX: _spritePool.take().eventDriven("build/sprites/bigx.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     checkMark: _spritePool.take().eventDriven("build/sprites/check.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     grave: _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     fog: _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0),
+    //     tapIcon: _spritePool.take().eventDriven("build/sprites/tap.png", _STANDARD_SIZE, _STANDARD_SIZE, 64, 64, 2, 3, 0, 0),
+    // };
+    // sprites.tapIcon.animationEndEvent = _tapIcon.resetAnimation;
+
     let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", _GHOST_SIZE, _GHOST_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
     let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
-    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
+    // let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
+    let _graveShapes = {
+        original: _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+        // cross: ...,
+        // ...
+    };
+
     let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
 
     let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", _STANDARD_SIZE, _STANDARD_SIZE, 64, 64, 2, 3, 0, 0);
@@ -1476,7 +1494,7 @@ let resources = (function () {
         // Retrieve previous session's volume
         if (typeof(Storage) !== "undefined") {
             try {
-                lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
+                lastVol = JSON.parse(localStorage.getItem("nback_masterVolume"));
             }
             catch(e) {
                 console.log("Previous volume data is corrupted or missing.");
@@ -1531,7 +1549,7 @@ let resources = (function () {
         }
 
         _spritePool.putBack(spr);
-        }
+    }
 
     return {
         //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
@@ -1543,8 +1561,11 @@ let resources = (function () {
         spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
         //spr_life: function() { return _spritePool.take().copyAttributes(_life); },
         spr_check: function() { return _spritePool.take().copyAttributes(_check); },
-        spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
         spr_fog: function() { return _spritePool.take().copyAttributes(_fog); },
+        spr_grave: function(shape) {
+            shape = shape || "original";
+            return _spritePool.take().copyAttributes(_graveShapes[shape]);
+        },
 
         snd_valid: _valid,
         snd_error: _error,
@@ -1771,6 +1792,7 @@ let renderer = (function () {
 
 let game = (function() {
     /* jshint validthis: true */
+    const MAX_INFINITE_WAVES = 1000;
 
     let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
     let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
@@ -1784,8 +1806,8 @@ let game = (function() {
     // DEFAULT:
     // Basically just takes the (HEIGHT/10) and rounds it to nearest factor of enemy speed
     // (also accounting for the offset of _enemyStart)
-    let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
-
+    const _defaultNewWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+    let _newWaveThresholds;
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
     _stoppingThreshold = _stoppingThreshold - _stoppingThreshold%_enemySpeed;
@@ -1805,7 +1827,7 @@ let game = (function() {
 
     let _score;
     let _scoreFraction;
-    let _highScores;
+    //let _highScores;
     let _multiplier = 1;
 
     let _lanes = (function() {
@@ -1862,26 +1884,17 @@ let game = (function() {
         let fogPool;
 
         let waveMap;
+        let graveShapes;
 
         function updateWavesPassed() {
             wavesPassed++;
         }
 
         function init(levelData) {
+            levelData = levelData || {};
 
             // If passed an array of levels
-            if ( Array.isArray(levelData) ) {
-
-                console.log("Array of levels not handled yet.");
-
-                /*
-                for (let i = 0; i < levels.length; i++) {
-                    // load level data here
-                }*/
-            }
-
-            // If just one level
-            else if (levelData) {
+            if (levelData.map) {
                 waveMap = levelData.map;
 
                 fogLevels = levelData.fogLevels;
@@ -1893,6 +1906,8 @@ let game = (function() {
             else {
                 spawn = spawnRandomWave;
             }
+
+            graveShapes = levelData.graveShapes;
 
             numClones = 0;
             cloneList = [];
@@ -1912,7 +1927,7 @@ let game = (function() {
 
         function setFogLevel(wavesObscured) {
             let theFog, waveDistance;
-            let i;
+            let i, j;
 
             // Remove fogs, if needed
             while (fogs.length > wavesObscured) {
@@ -1936,8 +1951,11 @@ let game = (function() {
                 theFog.sprite.foreground = true;
                 theFog.x = 0;
 
-                waveDistance = _newWaveThreshold - _enemyStart;
-                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i);// - (_enemies[0].height/2);
+                theFog.y = _stoppingThreshold;
+                for (j = 0; j <= i; j++) {
+                    waveDistance = _newWaveThresholds[wavesPassed+i] - _enemyStart;
+                    theFog.y -= waveDistance;// - (waveDistance*i);// - (_enemies[0].height/2);
+                }
                 //invisTurningPoint = theFog.y + (_enemies[0].height/2);
 
                 fogs.push(theFog);
@@ -1949,6 +1967,7 @@ let game = (function() {
 
         function spawnNextWave() {
             let newFogLevel, nextWave, i;
+            let graveShape;
 
             // If there are still waves left...
             if ( waveMap.length && waveMap.length > 0 ) {
@@ -1974,8 +1993,12 @@ let game = (function() {
                     // Is this one the real one?
                     enemy.isFake = !!nextWave[i];
 
+                    if (graveShapes && graveShapes[wavesSpawned]) {
+                        graveShape = graveShapes[wavesSpawned][i];
+                    }
+
                     if (enemy.isFake) {
-                        enemy.sprite = resources.spr_grave();
+                        enemy.sprite = resources.spr_grave(graveShape);
                     }
                     else {
                         enemy.sprite = resources.spr_enemy();
@@ -2049,56 +2072,56 @@ let game = (function() {
                     
                     // Start disappearing
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     isTutorialWave = true;
                     break;
 
                 case 20:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 35:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 case 60:
                     numClones = 2;
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     break;
 
                 case 80:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 130:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 case 200:
                     numClones = 3;
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     break;
 
                 case 220:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 330:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 default:
                     if (wavesSpawned > 350) {
                         //invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                        invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*4;
+                        invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*4;
                     }
             }
 
@@ -2182,18 +2205,18 @@ let game = (function() {
         //console.log(_score);
     }
 
-    // Insert a score into list of high scores
+    /*/ Insert a score into list of high scores
     function _insertScore(score) {
         _highScores.push(score);
         // Sort scores, highest first
         _highScores.sort(function(a, b){return b-a;});
         // Only top 10 scores
         _highScores = _highScores.slice(0, 10);
-        /*/ Insert into local storage
+        // Insert into local storage
         if (typeof(Storage) !== "undefined") {
             localStorage.setItem("nback_scores", JSON.stringify(_highScores));
-        }*/
-    }
+        }
+    }*/
 
     // Toggle buffer flag
     function _toggleInputBuffer() {
@@ -2215,7 +2238,7 @@ let game = (function() {
         if (!_gameOver) {
             _gameOver = true;
             //_player.sprite = resources.spr_explosion();
-            _insertScore(Math.round(_score));
+            //_insertScore(Math.round(_score));
             
             
             tapToStart.textContent = "TAP TO TRY AGAIN!";
@@ -2241,6 +2264,45 @@ let game = (function() {
         _score = 0;
         _scoreFraction = 0;
         _lastFrameTime = 0;
+
+        let i, numWaves, waveSpacing;
+
+        if (levelData) {
+
+            if (levelData.map && !levelData.numWaves) {
+                numWaves = levelData.map.length;
+            }
+            else {
+                numWaves = levelData.numWaves || MAX_INFINITE_WAVES;
+            }
+
+            if (Array.isArray(levelData.waveSpacing)) {
+                _newWaveThresholds = levelData.waveSpacing;
+            }
+            else {
+                _newWaveThresholds = [];
+                
+                if ( Array.isArray(levelData.waveSpacing) ) {
+                    _numWaveThresholds = levelData.waveSpacing;
+                    numWaves = -1;
+                }
+                else if (levelData.waveSpacing) {
+                    waveSpacing = levelData.waveSpacing;
+                }
+                else {
+                    waveSpacing = _defaultNewWaveThreshold;
+                }
+
+                for (i = 0; i < numWaves; i++) {
+                    _newWaveThresholds.push(waveSpacing);
+                }
+            }
+        }
+        else {
+            for (i = 0; i < MAX_INFINITE_WAVES; i++) {
+                _newWaveThresholds.push(_defaultNewWaveThreshold);
+            }
+        }
 
         _waves.init(levelData);
         
@@ -2369,7 +2431,7 @@ let game = (function() {
         // Update all entities
         for (i = 0; i < len; i++) {
             entity = _entities[i];
-            alertZone = entity.invisPointY-_newWaveThreshold;
+            alertZone = entity.invisPointY-(GAME_FIELD_HEIGHT/3);//_newWaveThreshold;
 
             if (_accelerating) {
                 entity.update(dt);
@@ -2437,7 +2499,7 @@ let game = (function() {
             // a certain distance
             if (entity instanceof Enemy &&
                 !entity.isFake &&
-                entity.y >= _newWaveThreshold &&
+                entity.y >= _newWaveThresholds[_waves.wavesPassed()] &&
                 !entity.triggeredWave) {
 
                 _waves.spawn();
@@ -2884,6 +2946,9 @@ startBtn.addEventListener("click", function() {
 
 
 let exportedObj = {};
-exportedObj.initialize = game.initialize;
+exportedObj.initialize = function(levelData) {
+resources.setGraveSprite(levelData.graveShapes);
+game.start(levelData);
+};
 return exportedObj;
 })();

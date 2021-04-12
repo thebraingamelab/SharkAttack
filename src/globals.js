@@ -60,8 +60,8 @@ let performance_data = {
     wavesCompleted: 0
 };
 
-let level_data = {
-    numWaves: 0,
+let levelData = {
+    numWaves: 200,
     map: [],
     fogLevels: {},
     waveSpacing: 110
@@ -75,7 +75,7 @@ let level_data = {
             timeToPick: [], // time it took to pick a grave for each wave
             wavesCompleted: 0,
         }
-        level_parameters = {
+        levelData = {
             numWaves: 118,
 
             map: [....,
@@ -97,12 +97,13 @@ let level_data = {
                 58: 4,
                 78: 1,
                 118: 2
-            }
+            },
 
-            waveData: [{spaceBetween: 94, ...}, {spaceBetween: 76, ...}, ....]
-                                   OR
-                      [{newWaveThreshold: 40, ...}, {newWaveThreshold: 20, ...}, ...}]
-                OR
-            spacingData: [[94, 72], [88, 69, 99], ...]
+            graveColors = [['red', 'blue'], ['gray', 'green', 'red'],...],
+            graveShapes = [['cross', 'ordinal'], ['heart', 'cross', 'square'],...],
+
+            waveSpacing = 110 OR [400, 49, 385, ...],
+
+            betweenSpacing = 40 OR [[30, 40], [20, 80, 60],...]
         }
         */

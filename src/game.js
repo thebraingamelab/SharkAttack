@@ -4,6 +4,7 @@
 
 let game = (function() {
     /* jshint validthis: true */
+    const MAX_INFINITE_WAVES = 1000;
 
     let _tempPool = new CloneablePool(new TempEntity(0, 0, 0, 0, null));
     let _enemyPool = new CloneablePool(new Enemy(0, 0, 0, 0, null));
@@ -17,8 +18,8 @@ let game = (function() {
     // DEFAULT:
     // Basically just takes the (HEIGHT/10) and rounds it to nearest factor of enemy speed
     // (also accounting for the offset of _enemyStart)
-    let _newWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
-
+    const _defaultNewWaveThreshold = Math.round(GAME_FIELD_HEIGHT/10/GAME_SPEED + 1)*GAME_SPEED - (_enemyStart%GAME_SPEED + GAME_SPEED);
+    let _newWaveThresholds;
 
     let _stoppingThreshold = GAME_FIELD_HEIGHT - (GAME_FIELD_HEIGHT/5);
     _stoppingThreshold = _stoppingThreshold - _stoppingThreshold%_enemySpeed;
@@ -95,26 +96,17 @@ let game = (function() {
         let fogPool;
 
         let waveMap;
+        let graveShapes;
 
         function updateWavesPassed() {
             wavesPassed++;
         }
 
         function init(levelData) {
+            levelData = levelData || {};
 
             // If passed an array of levels
-            if ( Array.isArray(levelData) ) {
-
-                console.log("Array of levels not handled yet.");
-
-                /*
-                for (let i = 0; i < levels.length; i++) {
-                    // load level data here
-                }*/
-            }
-
-            // If just one level
-            else if (levelData) {
+            if (levelData.map) {
                 waveMap = levelData.map;
 
                 fogLevels = levelData.fogLevels;
@@ -126,6 +118,8 @@ let game = (function() {
             else {
                 spawn = spawnRandomWave;
             }
+
+            graveShapes = levelData.graveShapes;
 
             numClones = 0;
             cloneList = [];
@@ -145,7 +139,7 @@ let game = (function() {
 
         function setFogLevel(wavesObscured) {
             let theFog, waveDistance;
-            let i;
+            let i, j;
 
             // Remove fogs, if needed
             while (fogs.length > wavesObscured) {
@@ -169,8 +163,11 @@ let game = (function() {
                 theFog.sprite.foreground = true;
                 theFog.x = 0;
 
-                waveDistance = _newWaveThreshold - _enemyStart;
-                theFog.y = _stoppingThreshold - waveDistance - (waveDistance*i);// - (_enemies[0].height/2);
+                theFog.y = _stoppingThreshold;
+                for (j = 0; j <= i; j++) {
+                    waveDistance = _newWaveThresholds[wavesPassed+i] - _enemyStart;
+                    theFog.y -= waveDistance;// - (waveDistance*i);// - (_enemies[0].height/2);
+                }
                 //invisTurningPoint = theFog.y + (_enemies[0].height/2);
 
                 fogs.push(theFog);
@@ -182,6 +179,7 @@ let game = (function() {
 
         function spawnNextWave() {
             let newFogLevel, nextWave, i;
+            let graveShape;
 
             // If there are still waves left...
             if ( waveMap.length && waveMap.length > 0 ) {
@@ -207,8 +205,12 @@ let game = (function() {
                     // Is this one the real one?
                     enemy.isFake = !!nextWave[i];
 
+                    if (graveShapes && graveShapes[wavesSpawned]) {
+                        graveShape = graveShapes[wavesSpawned][i];
+                    }
+
                     if (enemy.isFake) {
-                        enemy.sprite = resources.spr_grave();
+                        enemy.sprite = resources.spr_grave(graveShape);
                     }
                     else {
                         enemy.sprite = resources.spr_enemy();
@@ -282,56 +284,56 @@ let game = (function() {
                     
                     // Start disappearing
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     isTutorialWave = true;
                     break;
 
                 case 20:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 35:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 case 60:
                     numClones = 2;
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     break;
 
                 case 80:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 130:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 case 200:
                     numClones = 3;
                     //invisTurningPoint = GAME_FIELD_HEIGHT * (3/4);
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart);
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart);
                     break;
 
                 case 220:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 2;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*2;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*2;
                     break;
 
                 case 330:
                     //invisTurningPoint = GAME_FIELD_HEIGHT / 3;
-                    invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*3;
+                    invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*3;
                     break;
 
                 default:
                     if (wavesSpawned > 350) {
                         //invisTurningPoint = GAME_FIELD_HEIGHT / 5;
-                        invisTurningPoint = _stoppingThreshold - (_newWaveThreshold - _enemyStart)*4;
+                        invisTurningPoint = _stoppingThreshold - (_newWaveThresholds[wavesSpawned] - _enemyStart)*4;
                     }
             }
 
@@ -475,6 +477,45 @@ let game = (function() {
         _scoreFraction = 0;
         _lastFrameTime = 0;
 
+        let i, numWaves, waveSpacing;
+
+        if (levelData) {
+
+            if (levelData.map && !levelData.numWaves) {
+                numWaves = levelData.map.length;
+            }
+            else {
+                numWaves = levelData.numWaves || MAX_INFINITE_WAVES;
+            }
+
+            if (Array.isArray(levelData.waveSpacing)) {
+                _newWaveThresholds = levelData.waveSpacing;
+            }
+            else {
+                _newWaveThresholds = [];
+                
+                if ( Array.isArray(levelData.waveSpacing) ) {
+                    _numWaveThresholds = levelData.waveSpacing;
+                    numWaves = -1;
+                }
+                else if (levelData.waveSpacing) {
+                    waveSpacing = levelData.waveSpacing;
+                }
+                else {
+                    waveSpacing = _defaultNewWaveThreshold;
+                }
+
+                for (i = 0; i < numWaves; i++) {
+                    _newWaveThresholds.push(waveSpacing);
+                }
+            }
+        }
+        else {
+            for (i = 0; i < MAX_INFINITE_WAVES; i++) {
+                _newWaveThresholds.push(_defaultNewWaveThreshold);
+            }
+        }
+
         _waves.init(levelData);
         
 
@@ -602,7 +643,7 @@ let game = (function() {
         // Update all entities
         for (i = 0; i < len; i++) {
             entity = _entities[i];
-            alertZone = entity.invisPointY-_newWaveThreshold;
+            alertZone = entity.invisPointY-(GAME_FIELD_HEIGHT/3);//_newWaveThreshold;
 
             if (_accelerating) {
                 entity.update(dt);
@@ -670,7 +711,7 @@ let game = (function() {
             // a certain distance
             if (entity instanceof Enemy &&
                 !entity.isFake &&
-                entity.y >= _newWaveThreshold &&
+                entity.y >= _newWaveThresholds[_waves.wavesPassed()] &&
                 !entity.triggeredWave) {
 
                 _waves.spawn();

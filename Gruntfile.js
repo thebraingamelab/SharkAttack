@@ -24,8 +24,15 @@ module.exports = function(grunt) {
         concat: {
           options: {
             separator: ';\n',
-            banner: ';let gameAccessor = (function(){\n"use strict";\n',
-            footer: '\nlet exportedObj = {};\nexportedObj.initialize = game.initialize;\nreturn exportedObj;\n})();'
+            banner: ';let gameAccessor = (function(){\n'+
+                    '"use strict";\n',
+            footer: '\nlet exportedObj = {};\n'+
+                    'exportedObj.initialize = function(levelData) {\n'+
+                        'resources.setGraveSprite(levelData.graveShapes);\n'+
+                        'game.start(levelData);\n'+
+                    '};\n'+
+                    'return exportedObj;\n'+
+                    '})();'
           },
 
           build: {

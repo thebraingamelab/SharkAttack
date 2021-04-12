@@ -9,11 +9,28 @@ let resources = (function () {
 
     let _spritePool = new CloneablePool(new Sprite(null, 0, 0, 0, 0));
 
+    // let sprites = {
+    //     enemy: _spritePool.take().eventDriven("build/sprites/ghost.png", _GHOST_SIZE, _GHOST_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     tiledGrass: _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2),
+    //     bigX: _spritePool.take().eventDriven("build/sprites/bigx.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     checkMark: _spritePool.take().eventDriven("build/sprites/check.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     grave: _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+    //     fog: _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0),
+    //     tapIcon: _spritePool.take().eventDriven("build/sprites/tap.png", _STANDARD_SIZE, _STANDARD_SIZE, 64, 64, 2, 3, 0, 0),
+    // };
+    // sprites.tapIcon.animationEndEvent = _tapIcon.resetAnimation;
+
     let _enemySprite = _spritePool.take().eventDriven("build/sprites/ghost.png", _GHOST_SIZE, _GHOST_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
     let _tiledGrass = _spritePool.take().tiled("build/sprites/grassland-tile.jpg", GAME_FIELD_WIDTH, GAME_FIELD_HEIGHT, 414, 307, 0, 0, 1, 2);
     let _bigX = _spritePool.take().eventDriven("build/sprites/bigx.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
     let _check = _spritePool.take().eventDriven("build/sprites/check.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
-    let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
+    // let _grave = _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0);
+    let _graveShapes = {
+        original: _spritePool.take().eventDriven("build/sprites/grave.png", _STANDARD_SIZE, _STANDARD_SIZE, _SPRITE_SIZE, _SPRITE_SIZE, 1, 0, 0, 0),
+        // cross: ...,
+        // ...
+    };
+
     let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
 
     let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", _STANDARD_SIZE, _STANDARD_SIZE, 64, 64, 2, 3, 0, 0);
@@ -56,7 +73,7 @@ let resources = (function () {
         // Retrieve previous session's volume
         if (typeof(Storage) !== "undefined") {
             try {
-                lastVol = JSON.parse(localStorage.getItem('nback_masterVolume'));
+                lastVol = JSON.parse(localStorage.getItem("nback_masterVolume"));
             }
             catch(e) {
                 console.log("Previous volume data is corrupted or missing.");
@@ -111,7 +128,7 @@ let resources = (function () {
         }
 
         _spritePool.putBack(spr);
-        }
+    }
 
     return {
         //spr_playerWalkingUp: function() { return _spritePool.take().copyAttributes(_playerWalkingUp); },
@@ -123,8 +140,11 @@ let resources = (function () {
         spr_bigX: function() { return _spritePool.take().copyAttributes(_bigX); },
         //spr_life: function() { return _spritePool.take().copyAttributes(_life); },
         spr_check: function() { return _spritePool.take().copyAttributes(_check); },
-        spr_grave: function() { return _spritePool.take().copyAttributes(_grave); },
         spr_fog: function() { return _spritePool.take().copyAttributes(_fog); },
+        spr_grave: function(shape) {
+            shape = shape || "original";
+            return _spritePool.take().copyAttributes(_graveShapes[shape]);
+        },
 
         snd_valid: _valid,
         snd_error: _error,
