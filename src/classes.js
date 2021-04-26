@@ -496,6 +496,7 @@ function Enemy(x, y, speed, invisPointY, sprite) {
     this.triggeredWave = false;
     this.triggeredPause = false;
     this.clicked = false;
+    this.column = 0;
 }
 
 // Enemy extends Entity
@@ -513,6 +514,7 @@ Enemy.prototype.init = function () {
     this.triggeredWave = false;
     this.triggeredPause = false;
     this.clicked = false;
+    this.column = 0;
 };
 
 Enemy.prototype.clone = function () {

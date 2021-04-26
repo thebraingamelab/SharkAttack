@@ -565,12 +565,7 @@ let dimmer = document.getElementById("dimmer");
 let boxSize;
 
 // Trial data
-let performance_data = {
-    selections: [],
-    inputType: "none",
-    timeToPick: [],
-    wavesCompleted: 0
-};
+let performanceData;
 
 let levelData = {
     numWaves: 200,
@@ -581,7 +576,7 @@ let levelData = {
 
 /*
 
-        performance_data = {
+        performanceData = {
             selections: [1, 0, 2, 1, 3, 2],
             inputType: "click" (or "touch"),
             timeToPick: [], // time it took to pick a grave for each wave
@@ -1326,6 +1321,7 @@ function Enemy(x, y, speed, invisPointY, sprite) {
     this.triggeredWave = false;
     this.triggeredPause = false;
     this.clicked = false;
+    this.column = 0;
 }
 
 // Enemy extends Entity
@@ -1343,6 +1339,7 @@ Enemy.prototype.init = function () {
     this.triggeredWave = false;
     this.triggeredPause = false;
     this.clicked = false;
+    this.column = 0;
 };
 
 Enemy.prototype.clone = function () {
@@ -1987,18 +1984,18 @@ let game = (function() {
                 //////////////////
                 // SUS BEGINS HERE, FIX LATER
                 ///////////////////
-                if (fogs.length >= 2) {
-                    let midFog = fogPool.take();
+                // if (fogs.length >= 2) {
+                //     let midFog = fogPool.take();
 
-                    midFog.sprite = resources.spr_fog();
-                    midFog.sprite.alpha = 0;
-                    midFog.sprite.fadeAmt = FOG_FADE_SPEED;
-                    midFog.sprite.foreground = true;
-                    midFog.x = 0;
+                //     midFog.sprite = resources.spr_fog();
+                //     midFog.sprite.alpha = 0;
+                //     midFog.sprite.fadeAmt = FOG_FADE_SPEED;
+                //     midFog.sprite.foreground = true;
+                //     midFog.x = 0;
 
-                    midFog.y = theFog.y + theFog.sprite.height - resources.STANDARD_SIZE;
-                    _addEntity(midFog);
-                }
+                //     midFog.y = theFog.y + theFog.sprite.height - resources.STANDARD_SIZE;
+                //     _addEntity(midFog);
+                // }
                 ///////////////
                 // END SUS
                 ///////////////
@@ -2026,6 +2023,8 @@ let game = (function() {
                 // spawned before the fog level was set - these graves do
                 // not have the correct invisTurningPoint
                 
+                // Choose which lanes to spawn the enemies in
+                enemyLane = randomInt(_lanes.NUM_LANES - numClones);
 
                 // Make the enemy and its grave(s)
                 for (i = 0; i < nextWave.length; i++) {
@@ -2047,15 +2046,15 @@ let game = (function() {
                         enemy.draw = true;
                     }
 
-                    enemy.lane = i;
+                    enemy.lane = enemyLane+i;
                     enemy.x = _lanes.getCenterX(i);
                     enemy.y = -10;
                     enemy.speed = _enemySpeed;
                     enemy.invisPointY = invisTurningPoint;
                     enemy.width = enemy.sprite.width;
                     enemy.height = enemy.sprite.width;
+                    enemy.column = i;
 
-                    cloneList[i] = enemy;
                     _addEntity(enemy);
                 }
 
@@ -2182,6 +2181,7 @@ let game = (function() {
                 enemy.width = enemy.sprite.width;
                 enemy.height = enemy.sprite.width;
                 enemy.isFake = true;
+                enemy.column = i;
 
                 cloneList[i] = enemy;
                 _addEntity(enemy);
@@ -2285,6 +2285,11 @@ let game = (function() {
             tapToStart.textContent = "TAP TO TRY AGAIN!";
             displayTapToStart();
             //console.log(_highScores);
+
+            // Record the number of waves completed
+            performanceData.wavesCompleted = _waves.wavesPassed()+1;
+
+            console.log(performanceData);
         }
     }
 
@@ -2305,6 +2310,13 @@ let game = (function() {
         _score = 0;
         _scoreFraction = 0;
         _lastFrameTime = 0;
+
+        performanceData = {
+            selections: [],
+            inputType: "none",
+            timeToPick: [],
+            wavesCompleted: 0
+        };
 
         let i, numWaves, waveSpacing;
 
@@ -2576,6 +2588,7 @@ let game = (function() {
 
             // Start a timer to determine any score multipliers
             _inputTimer.start();
+
         }
 
         // Toggle flag
@@ -2604,10 +2617,12 @@ let game = (function() {
         let timerStillRunning = false;
         let successes = 0;
         let untilMultiplierIncrease = 3;
+        let inputStartTime;
 
         function start() {
             timerStillRunning = true;
             timeout = window.setTimeout(reset, WAIT_TIME);
+            inputStartTime = Date.now();
         }
 
         function stop() {
@@ -2622,14 +2637,19 @@ let game = (function() {
                     //console.log(_multiplier + "x multipler!");
                 }
             }
+
+            performanceData.timeToPick.push(Date.now() - inputStartTime);
         }
 
-        function reset() {
+        function reset(recordTime=false) {
             _multiplier = 1;
             successes = 0;
             untilMultiplierIncrease = 3;
             timerStillRunning = false;
 
+            if (recordTime) {
+                performanceData.timeToPick.push(Date.now() - inputStartTime);
+            }
             //console.log("Multiplier reset to 1.");
         }
 
@@ -2749,6 +2769,9 @@ function inputHandler(event) {
         clickLocation = resizer.getRelativeEventCoords(event);
     }
 
+    // Record input type as "mouse" or "touch"
+    performanceData.inputType = event.type.substr(0,5);
+
     // Only register the input if the game is running, the input location was valid,
     // and the player is allowed to input
     if (!game.gameOver() && player && game.inputEnabled() &&
@@ -2780,6 +2803,10 @@ function inputHandler(event) {
         }
 
         if (hitArea > 0) {
+
+            // Record which grave the user picked
+            performanceData.selections.push(intendedEnemy.column);
+
             // Disable input for now, so player can't click multiple enemies in one go
             game.toggleInput();
 
@@ -2790,7 +2817,7 @@ function inputHandler(event) {
             if (intendedEnemy.isFake) {
                 intendedEnemy.sprite = resources.spr_bigX();
                 player.loseLife();
-                game.inputTimer.reset();
+                game.inputTimer.reset(true);
                 resources.snd_error.play();
                 
             }
@@ -2988,9 +3015,6 @@ startBtn.addEventListener("click", function() {
 
 
 let exportedObj = {};
-exportedObj.initialize = function(levelData) {
-resources.setGraveSprite(levelData.graveShapes);
-game.start(levelData);
-};
+exportedObj.initialize = game.start;
 return exportedObj;
 })();

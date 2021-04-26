@@ -217,6 +217,8 @@ let game = (function() {
                 // spawned before the fog level was set - these graves do
                 // not have the correct invisTurningPoint
                 
+                // Choose which lanes to spawn the enemies in
+                enemyLane = randomInt(_lanes.NUM_LANES - numClones);
 
                 // Make the enemy and its grave(s)
                 for (i = 0; i < nextWave.length; i++) {
@@ -238,15 +240,15 @@ let game = (function() {
                         enemy.draw = true;
                     }
 
-                    enemy.lane = i;
+                    enemy.lane = enemyLane+i;
                     enemy.x = _lanes.getCenterX(i);
                     enemy.y = -10;
                     enemy.speed = _enemySpeed;
                     enemy.invisPointY = invisTurningPoint;
                     enemy.width = enemy.sprite.width;
                     enemy.height = enemy.sprite.width;
+                    enemy.column = i;
 
-                    cloneList[i] = enemy;
                     _addEntity(enemy);
                 }
 
@@ -373,6 +375,7 @@ let game = (function() {
                 enemy.width = enemy.sprite.width;
                 enemy.height = enemy.sprite.width;
                 enemy.isFake = true;
+                enemy.column = i;
 
                 cloneList[i] = enemy;
                 _addEntity(enemy);
@@ -476,6 +479,8 @@ let game = (function() {
             tapToStart.textContent = "TAP TO TRY AGAIN!";
             displayTapToStart();
             //console.log(_highScores);
+
+            console.log(performanceData);
         }
     }
 
@@ -496,6 +501,12 @@ let game = (function() {
         _score = 0;
         _scoreFraction = 0;
         _lastFrameTime = 0;
+
+        performanceData = {
+            selections: [],
+            inputType: "none",
+            timeToPick: []
+        };
 
         let i, numWaves, waveSpacing;
 
@@ -767,6 +778,7 @@ let game = (function() {
 
             // Start a timer to determine any score multipliers
             _inputTimer.start();
+
         }
 
         // Toggle flag
@@ -795,10 +807,12 @@ let game = (function() {
         let timerStillRunning = false;
         let successes = 0;
         let untilMultiplierIncrease = 3;
+        let inputStartTime;
 
         function start() {
             timerStillRunning = true;
             timeout = window.setTimeout(reset, WAIT_TIME);
+            inputStartTime = Date.now();
         }
 
         function stop() {
@@ -813,14 +827,19 @@ let game = (function() {
                     //console.log(_multiplier + "x multipler!");
                 }
             }
+
+            performanceData.timeToPick.push(Date.now() - inputStartTime);
         }
 
-        function reset() {
+        function reset(recordTime=false) {
             _multiplier = 1;
             successes = 0;
             untilMultiplierIncrease = 3;
             timerStillRunning = false;
 
+            if (recordTime) {
+                performanceData.timeToPick.push(Date.now() - inputStartTime);
+            }
             //console.log("Multiplier reset to 1.");
         }
 

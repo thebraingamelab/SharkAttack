@@ -72,6 +72,9 @@ function inputHandler(event) {
         clickLocation = resizer.getRelativeEventCoords(event);
     }
 
+    // Record input type as "mouse" or "touch"
+    performanceData.inputType = event.type.substr(0,5);
+
     // Only register the input if the game is running, the input location was valid,
     // and the player is allowed to input
     if (!game.gameOver() && player && game.inputEnabled() &&
@@ -103,6 +106,10 @@ function inputHandler(event) {
         }
 
         if (hitArea > 0) {
+
+            // Record which grave the user picked
+            performanceData.selections.push(intendedEnemy.column);
+
             // Disable input for now, so player can't click multiple enemies in one go
             game.toggleInput();
 
@@ -113,7 +120,7 @@ function inputHandler(event) {
             if (intendedEnemy.isFake) {
                 intendedEnemy.sprite = resources.spr_bigX();
                 player.loseLife();
-                game.inputTimer.reset();
+                game.inputTimer.reset(true);
                 resources.snd_error.play();
                 
             }

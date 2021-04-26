@@ -53,12 +53,7 @@ let dimmer = document.getElementById("dimmer");
 let boxSize;
 
 // Trial data
-let performance_data = {
-    selections: [],
-    inputType: "none",
-    timeToPick: [],
-    wavesCompleted: 0
-};
+let performanceData;
 
 let levelData = {
     numWaves: 200,
@@ -69,11 +64,10 @@ let levelData = {
 
 /*
 
-        performance_data = {
+        performanceData = {
             selections: [1, 0, 2, 1, 3, 2],
-            inputType: "click" (or "touch"),
+            inputType: "mouse" (or "touch"),
             timeToPick: [], // time it took to pick a grave for each wave
-            wavesCompleted: 0,
         }
         levelData = {
             numWaves: 118,

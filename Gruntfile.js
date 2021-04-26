@@ -26,10 +26,9 @@ module.exports = function(grunt) {
             separator: ';\n',
             banner: ';let gameAccessor = (function(){\n'+
                     '"use strict";\n',
-            footer: '\nlet exportedObj = {};\n'+
-                    'exportedObj.initialize = function(levelData) {\n'+
-                        'game.start(levelData);\n'+
-                    '};\n'+
+            footer: '\n'+
+                    'let exportedObj = {};\n'+
+                    'exportedObj.initialize = game.start;\n'+
                     'return exportedObj;\n'+
                     '})();'
           },
