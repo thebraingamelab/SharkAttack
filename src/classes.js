@@ -161,7 +161,7 @@ function Sprite(image, width, height, frames, frameRate) {
 }
 
 // Constructor for event-based sprites
-Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col) {
+Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col, colorFilter) {
     let spriteImage = document.createElement("img");
     let image = document.createElement("img");
 
@@ -177,6 +177,27 @@ Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, fra
                                 frameWidth*frames, frameHeight,
                                 0, 0,
                                 width*frames, height);
+
+        // Overlay a color filter
+        // if (colorFilter) {
+        //     const imageData = spriteContext.getImageData(0,0,width*frames,height);
+        //     const lightGrayRGBA = "121122122255";
+        //     for (let i = 0; i < imgData.data.length; i+=4) {
+        //         const r = imgData.data[i];
+        //         const g = imgData.data[i+1];
+        //         const b = imgData.data[i+2];
+        //         const a = imgData.data[i+3];
+
+        //         const rgba = ''+r+g+b+a;
+        //         if (rgba === lightGrayRGBA) {
+        //             // more globalAlpha here
+        //         }
+        //     }
+        //     spriteContext.globalAlpha = 0.25;
+        //     spriteContext.globalCompositeOperation="source-atop";
+        //     spriteContext.fillStyle = colorFilter;
+        //     spriteContext.fillRect(0, 0, width*frames, height);
+        // }
 
         image.src = spriteCanvas.toDataURL('image/png');
 

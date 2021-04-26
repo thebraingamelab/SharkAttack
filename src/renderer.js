@@ -37,7 +37,7 @@ let renderer = (function () {
                 // Apply opacity
                 _context.save();
                 _context.globalAlpha = sprite.alpha;
-
+                
                 // Draw the image
                 _context.drawImage(sprite.image,
                                     sprite.width*(sprite.frames-1), 0,

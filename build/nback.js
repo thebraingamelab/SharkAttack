@@ -991,7 +991,7 @@ function Sprite(image, width, height, frames, frameRate) {
 }
 
 // Constructor for event-based sprites
-Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col) {
+Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, frameHeight, frames, frameRate, row, col, colorFilter) {
     let spriteImage = document.createElement("img");
     let image = document.createElement("img");
 
@@ -1007,6 +1007,27 @@ Sprite.prototype.eventDriven = function (imgPath, width, height, frameWidth, fra
                                 frameWidth*frames, frameHeight,
                                 0, 0,
                                 width*frames, height);
+
+        // Overlay a color filter
+        // if (colorFilter) {
+        //     const imageData = spriteContext.getImageData(0,0,width*frames,height);
+        //     const lightGrayRGBA = "121122122255";
+        //     for (let i = 0; i < imgData.data.length; i+=4) {
+        //         const r = imgData.data[i];
+        //         const g = imgData.data[i+1];
+        //         const b = imgData.data[i+2];
+        //         const a = imgData.data[i+3];
+
+        //         const rgba = ''+r+g+b+a;
+        //         if (rgba === lightGrayRGBA) {
+        //             // more globalAlpha here
+        //         }
+        //     }
+        //     spriteContext.globalAlpha = 0.25;
+        //     spriteContext.globalCompositeOperation="source-atop";
+        //     spriteContext.fillStyle = colorFilter;
+        //     spriteContext.fillRect(0, 0, width*frames, height);
+        // }
 
         image.src = spriteCanvas.toDataURL('image/png');
 
@@ -1452,7 +1473,7 @@ let resources = (function () {
         // ...
     };
 
-    let _fog = _spritePool.take().eventDriven("build/sprites/fog2.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
+    let _fog = _spritePool.take().eventDriven("build/sprites/fog.png", GAME_FIELD_WIDTH, _STANDARD_SIZE*2, 438, 266, 1, 0, 0, 0);
 
     let _tapIcon = _spritePool.take().eventDriven("build/sprites/tap.png", _STANDARD_SIZE, _STANDARD_SIZE, 64, 64, 2, 3, 0, 0);
     _tapIcon.animationEndEvent = _tapIcon.resetAnimation;
@@ -1622,7 +1643,7 @@ let renderer = (function () {
                 // Apply opacity
                 _context.save();
                 _context.globalAlpha = sprite.alpha;
-
+                
                 // Draw the image
                 _context.drawImage(sprite.image,
                                     sprite.width*(sprite.frames-1), 0,
@@ -1956,11 +1977,31 @@ let game = (function() {
                     waveDistance = _newWaveThresholds[wavesPassed+i] - _enemyStart;
                     theFog.y -= waveDistance;// - (waveDistance*i);// - (_enemies[0].height/2);
                 }
+                theFog.y -= resources.STANDARD_SIZE/2;
                 //invisTurningPoint = theFog.y + (_enemies[0].height/2);
 
                 fogs.push(theFog);
                 _addEntity(theFog);
 
+
+                //////////////////
+                // SUS BEGINS HERE, FIX LATER
+                ///////////////////
+                if (fogs.length >= 2) {
+                    let midFog = fogPool.take();
+
+                    midFog.sprite = resources.spr_fog();
+                    midFog.sprite.alpha = 0;
+                    midFog.sprite.fadeAmt = FOG_FADE_SPEED;
+                    midFog.sprite.foreground = true;
+                    midFog.x = 0;
+
+                    midFog.y = theFog.y + theFog.sprite.height - resources.STANDARD_SIZE;
+                    _addEntity(midFog);
+                }
+                ///////////////
+                // END SUS
+                ///////////////
                 i++;
             }
         }
@@ -2299,6 +2340,7 @@ let game = (function() {
             }
         }
         else {
+            _newWaveThresholds = [];
             for (i = 0; i < MAX_INFINITE_WAVES; i++) {
                 _newWaveThresholds.push(_defaultNewWaveThreshold);
             }

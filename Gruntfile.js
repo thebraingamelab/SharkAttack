@@ -28,7 +28,6 @@ module.exports = function(grunt) {
                     '"use strict";\n',
             footer: '\nlet exportedObj = {};\n'+
                     'exportedObj.initialize = function(levelData) {\n'+
-                        'resources.setGraveSprite(levelData.graveShapes);\n'+
                         'game.start(levelData);\n'+
                     '};\n'+
                     'return exportedObj;\n'+

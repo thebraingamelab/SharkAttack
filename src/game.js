@@ -168,11 +168,31 @@ let game = (function() {
                     waveDistance = _newWaveThresholds[wavesPassed+i] - _enemyStart;
                     theFog.y -= waveDistance;// - (waveDistance*i);// - (_enemies[0].height/2);
                 }
+                theFog.y -= resources.STANDARD_SIZE/2;
                 //invisTurningPoint = theFog.y + (_enemies[0].height/2);
 
                 fogs.push(theFog);
                 _addEntity(theFog);
 
+
+                //////////////////
+                // SUS BEGINS HERE, FIX LATER
+                ///////////////////
+                // if (fogs.length >= 2) {
+                //     let midFog = fogPool.take();
+
+                //     midFog.sprite = resources.spr_fog();
+                //     midFog.sprite.alpha = 0;
+                //     midFog.sprite.fadeAmt = FOG_FADE_SPEED;
+                //     midFog.sprite.foreground = true;
+                //     midFog.x = 0;
+
+                //     midFog.y = theFog.y + theFog.sprite.height - resources.STANDARD_SIZE;
+                //     _addEntity(midFog);
+                // }
+                ///////////////
+                // END SUS
+                ///////////////
                 i++;
             }
         }
@@ -511,6 +531,7 @@ let game = (function() {
             }
         }
         else {
+            _newWaveThresholds = [];
             for (i = 0; i < MAX_INFINITE_WAVES; i++) {
                 _newWaveThresholds.push(_defaultNewWaveThreshold);
             }
